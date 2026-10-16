@@ -38,6 +38,6 @@
 .panel-content .group-mineral .gauge-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 #station-header {
-  background-size: 350% auto;
+  background-size: 90% auto;
   background-position: left center;
 }
