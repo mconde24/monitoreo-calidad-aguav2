@@ -38,8 +38,10 @@
 .panel-content .group-mineral .gauge-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 #station-header {
-  background-size: cover;
-  background-position: center center;
-  min-height: 220px;
+  min-height: 240px;
   padding: 22px 34px;
+  background-color: #072339;
+  background-size: 100% 100%, contain;
+  background-position: center, right center;
+  background-repeat: no-repeat;
 }
