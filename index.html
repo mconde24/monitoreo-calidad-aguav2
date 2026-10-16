@@ -1,54 +1,35 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Monitoreo público de calidad del agua: lecturas de sensores y evolución temporal.">
-  <title>Calidad del agua · Monitoreo ambiental</title>
-  <link rel="stylesheet" href="./styles.css?v=2">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
-  <script src="./app.js?v=2" defer></script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff"><meta name="description" content="AQUATRACE: monitoreo de calidad del agua, ubicación de la estación y análisis de series temporales.">
+<title>AQUATRACE · Estación Uninorte</title>
+<link rel="stylesheet" href="./styles.css?v=3">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
+<script src="./station.js?v=3" defer></script><script src="./app.js?v=3" defer></script>
 </head>
 <body>
-  <main class="dashboard">
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-icon" aria-hidden="true">≈</span>
-        <div>
-          <p class="eyebrow">MONITOREO AMBIENTAL</p>
-          <h1>Calidad del agua</h1>
-          <p class="subtitle">Lecturas de sensores y evolución temporal</p>
-        </div>
-      </div>
-      <div class="connection" role="status"><span id="connection-dot" class="dot"></span><span id="connection-label">Consultando fuente…</span></div>
-    </header>
-    <section class="toolbar" aria-label="Controles del monitoreo">
-      <div class="control"><label for="wd-range">Periodo de consulta</label><select id="wd-range">
-        <option value="15">Últimos 15 minutos</option><option value="30">Últimos 30 minutos</option>
-        <option value="60">Última hora</option><option value="360">Últimas 6 horas</option>
-        <option value="720">Últimas 12 horas</option><option value="1440" selected>Últimas 24 horas</option>
-        <option value="10080">Últimos 7 días</option>
-      </select></div>
-      <div class="toolbar-actions"><button id="wd-refresh" class="button button-primary" type="button">↻ Actualizar</button><button id="wd-csv" class="button" type="button">↓ Descargar CSV</button></div>
-    </section>
-    <div class="summary-grid" aria-label="Información de las mediciones">
-      <span>Última medición <strong id="last-reading">—</strong></span>
-      <span>Registros en el periodo <strong id="record-count">—</strong></span>
-      <span>Consulta automática <strong>cada 30 s</strong></span>
-    </div>
-    <div id="wd-status" class="status" role="status" aria-live="polite">Consultando las mediciones…</div>
-    <section aria-labelledby="gauges-title">
-      <div class="section-heading"><h2 id="gauges-title">Últimas lecturas</h2><p class="section-caption">Hora de Colombia · Color por variable</p></div>
-      <div id="wd-gauges" class="gauge-grid"></div>
-      <p class="scale-note">Los arcos muestran la posición dentro de la escala configurada; no indican límites de calidad ambiental.</p>
-    </section>
-    <section aria-labelledby="history-title">
-      <div class="section-heading history-heading"><h2 id="history-title">Evolución temporal</h2><p class="section-caption">Consulta los valores al pasar el cursor o tocar la gráfica.</p></div>
-      <div id="wd-charts" class="chart-grid"></div>
-    </section>
-    <footer class="footer"><span>Fuente: ThingSpeak · Canal 3151173 · Zona horaria: America/Bogota</span><span id="last-update">Esperando consulta…</span></footer>
-  </main>
-  <noscript>Activa JavaScript para consultar las mediciones.</noscript>
-</body>
-</html>
+<main class="dashboard">
+<header class="station-banner">
+ <div class="banner-copy"><p class="eyebrow">MONITOREO DE CALIDAD DEL AGUA</p><h1 id="station-brand">AQUATRACE</h1><p id="station-name" class="station-name">Estación Uninorte · Sensor 01</p><p class="banner-description">Observación ambiental y análisis de datos</p><div class="connection" role="status"><span id="connection-dot" class="dot"></span><span id="connection-label">Consultando estación…</span></div></div>
+ <div class="banner-photos"><img class="sensor-photo" src="./assets/aquatrace-sensores.jpeg" alt="Equipos de monitoreo AQUATRACE"><img class="landscape-photo" src="./assets/entorno-estacion.jpeg" alt="Paisaje costero compartido para la estación"></div>
+</header>
+<div class="section-nav" role="tablist" aria-label="Secciones de la estación"><button id="tab-current" type="button" role="tab" aria-selected="true" aria-controls="panel-current" tabindex="0">Medidores y estación</button><button id="tab-history" type="button" role="tab" aria-selected="false" aria-controls="panel-history" tabindex="-1">Series de tiempo y análisis</button></div>
+<section id="panel-current" role="tabpanel" aria-labelledby="tab-current">
+ <div class="section-heading"><div><h2>Lecturas actuales</h2><p class="section-caption">Último dato disponible por variable · Hora de Colombia</p></div><button id="wd-refresh" class="button" type="button">↻ Actualizar estación</button></div>
+ <div id="wd-status" class="status" role="status" aria-live="polite">Consultando mediciones…</div>
+ <div class="station-layout"><div><div id="wd-gauges" class="gauge-grid"></div><p class="scale-note">Las escalas de los arcos no representan límites de calidad ambiental.</p></div>
+ <aside class="map-card"><div class="map-heading"><p class="eyebrow">UBICACIÓN DE REFERENCIA</p><h2 id="map-name">Piscina de Uninorte</h2><p id="map-place">Centro Deportivo Roble Amarillo</p></div><iframe id="station-map" title="Mapa de ubicación de la estación" loading="lazy" referrerpolicy="no-referrer" src="about:blank"></iframe><dl class="coordinates"><div><dt>Latitud</dt><dd id="latitude">—</dd></div><div><dt>Longitud</dt><dd id="longitude">—</dd></div></dl><p id="map-note" class="map-note"></p><a id="map-link" class="map-link" href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">Abrir mapa ↗</a></aside></div>
+</section>
+<section id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+ <div class="section-heading"><div><h2>Series de tiempo</h2><p class="section-caption">Consulta el historial y selecciona un segmento para analizarlo.</p></div><button id="wd-csv" class="button" type="button">↓ CSV del historial</button></div>
+ <form id="history-form" class="analysis-controls"><div class="control"><label for="wd-range">Historial a cargar</label><select id="wd-range"><option value="60">Última hora</option><option value="360">Últimas 6 horas</option><option value="1440" selected>Últimas 24 horas</option><option value="10080">Últimos 7 días</option><option value="custom">Fechas específicas</option></select></div><div id="query-dates" class="date-pair" hidden><div class="control"><label for="query-start">Desde · Colombia</label><input id="query-start" type="datetime-local" step="1"></div><div class="control"><label for="query-end">Hasta · Colombia</label><input id="query-end" type="datetime-local" step="1"></div></div><button id="load-history" class="button button-primary" type="submit">Cargar historial</button></form>
+ <p id="history-status" class="status" role="status" aria-live="polite">El historial se cargará al abrir esta sección.</p>
+ <div class="analysis-box"><div class="analysis-heading"><div><h3>Análisis del segmento</h3><p>Selecciona las fechas o arrastra sobre una gráfica para marcar un intervalo.</p></div><button id="reset-segment" class="button" type="button">Todo el historial cargado</button></div><form id="segment-form" class="analysis-controls"><div class="control"><label for="segment-start">Inicio · Colombia (UTC−5)</label><input id="segment-start" type="datetime-local" step="1" required></div><div class="control"><label for="segment-end">Fin · Colombia (UTC−5)</label><input id="segment-end" type="datetime-local" step="1" required></div><button class="button button-primary" type="submit">Calcular</button><button id="stats-csv" class="button" type="button">↓ Estadísticas CSV</button></form>
+ <p id="segment-message" class="segment-message" role="status" aria-live="polite">Carga un historial para comenzar.</p>
+ <div class="stats-scroll"><table class="stats-table"><caption class="sr-only">Estadísticas por variable en el segmento seleccionado</caption><thead><tr><th scope="col">Variable</th><th scope="col">Unidad</th><th scope="col">n</th><th scope="col">Media</th><th scope="col">Mediana</th><th scope="col">Mínimo</th><th scope="col">Máximo</th></tr></thead><tbody id="stats-body"></tbody></table></div><p class="analysis-note">Estadísticas de las lecturas válidas recibidas, sin interpolación. La media aritmética da el mismo peso a cada lectura; revisa n y la cobertura del intervalo.</p></div>
+ <div id="wd-charts" class="chart-grid"></div>
+</section>
+<footer class="footer"><span>Fuente: ThingSpeak · Canal <span id="channel-label">3151173</span> · Hora de Colombia</span><span id="last-update">Esperando consulta…</span></footer>
+</main><noscript>Activa JavaScript para consultar los datos de la estación.</noscript>
+</body></html>
