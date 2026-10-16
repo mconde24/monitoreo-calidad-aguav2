@@ -38,10 +38,44 @@
 .panel-content .group-mineral .gauge-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 #station-header {
+  display: flex;
+  align-items: center;
   min-height: 240px;
   padding: 22px 34px;
+  box-sizing: border-box;
+
   background-color: #072339;
   background-size: 100% 100%, contain;
   background-position: center, right center;
   background-repeat: no-repeat;
+
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+#station-header .banner-copy {
+  max-width: 48%;
+}
+
+#station-header h1 {
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.1;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  #station-header {
+    padding: 22px 24px;
+  }
+
+  #station-header .banner-copy {
+    max-width: 75%;
+  }
+
+  #station-header h1 {
+    font-size: 32px;
+  }
 }
