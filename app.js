@@ -537,57 +537,59 @@ function drawPHGauge(gauge, latest) {
   const cx = width / 2;
   const cy = 128;
   const radius = Math.min(width * 0.34, 89);
+  const outerRadius = radius + 12;
 
   const angle = value =>
     Math.PI + Math.PI * Math.max(0, Math.min(14, value)) / 14;
 
-  ctx.lineWidth = 11;
+  // ARRIBA: escala fija de colores tipo tira indicadora.
+  ctx.lineWidth = 5;
   ctx.lineCap = "butt";
 
   PH_INDICATOR_COLORS.forEach((color, index) => {
     const start = Math.max(0, index - 0.5);
     const end = Math.min(14, index + 0.5);
-    const gap = 0.008;
 
     ctx.beginPath();
     ctx.arc(
-      cx,
-      cy,
-      radius,
-      angle(start) + gap,
-      angle(end) - gap
+      cx, cy, outerRadius,
+      angle(start) + 0.008,
+      angle(end) - 0.008
     );
     ctx.strokeStyle = color;
     ctx.stroke();
   });
 
+  // DEBAJO: fondo de la barra de lectura.
+  ctx.lineWidth = 9;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
+  ctx.strokeStyle = "#e5ecef";
+  ctx.stroke();
+
   if (Number.isFinite(latest)) {
+    // La barra avanza desde 0 hasta el pH actual.
+    if (latest > 0) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, Math.PI, angle(latest));
+      ctx.strokeStyle = phIndicatorColor(latest);
+      ctx.stroke();
+    }
+
+    // Marca la lectura sobre la escala superior.
     const a = angle(latest);
 
     ctx.beginPath();
     ctx.moveTo(
-      cx + Math.cos(a) * (radius - 15),
-      cy + Math.sin(a) * (radius - 15)
+      cx + Math.cos(a) * (outerRadius - 4),
+      cy + Math.sin(a) * (outerRadius - 4)
     );
     ctx.lineTo(
-      cx + Math.cos(a) * (radius + 7),
-      cy + Math.sin(a) * (radius + 7)
+      cx + Math.cos(a) * (outerRadius + 5),
+      cy + Math.sin(a) * (outerRadius + 5)
     );
     ctx.strokeStyle = ink;
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(
-      cx + Math.cos(a) * radius,
-      cy + Math.sin(a) * radius,
-      5,
-      0,
-      2 * Math.PI
-    );
-    ctx.fillStyle = phIndicatorColor(latest);
-    ctx.fill();
-    ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
     ctx.stroke();
   }
@@ -595,20 +597,20 @@ function drawPHGauge(gauge, latest) {
   ctx.font = "13px system-ui, sans-serif";
   ctx.fillStyle = muted;
   ctx.textAlign = "center";
-  ctx.fillText("0", cx - radius, cy + 22);
-  ctx.fillText("7", cx, cy - radius - 17);
-  ctx.fillText("14", cx + radius, cy + 22);
+  ctx.fillText("0", cx - outerRadius, cy + 22);
+  ctx.fillText("7", cx, cy - outerRadius - 12);
+  ctx.fillText("14", cx + outerRadius, cy + 22);
 
   ctx.font = "11px system-ui, sans-serif";
-  ctx.fillText("Ácido", cx - radius, cy + 39);
+  ctx.fillText("Ácido", cx - outerRadius, cy + 39);
   ctx.fillText("Neutro", cx, cy + 39);
-  ctx.fillText("Alcalino", cx + radius, cy + 39);
+  ctx.fillText("Alcalino", cx + outerRadius, cy + 39);
 
   canvas.setAttribute(
     "aria-label",
     `pH: ${Number.isFinite(latest) ? formatNumber(latest) : "sin dato"}. ` +
-    "Indicador universal: rojo ácido, verde en 7 y violeta alcalino. " +
-    "El borde evalúa el promedio ambiental por separado."
+    "Escala superior tipo indicador universal y barra inferior de lectura actual. " +
+    "El borde evalúa el promedio del periodo."
   );
 }
 
