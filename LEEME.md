@@ -1,115 +1,85 @@
-# AQUATRACE · Panel de la estación
+# AquaProbe Mocaná · Archivos para GitHub Pages
 
-## Instalar en GitHub Pages
+## Instalación
 
-1. Extrae el ZIP. Sus siete archivos están directamente en la raíz, sin carpetas adicionales.
-2. Sube los siete archivos juntos a la raíz publicada del repositorio `monitoreo-calidad-agua` y reemplaza los anteriores. Los dos JPEG deben estar al mismo nivel que `index.html`.
-3. Confirma los cambios y espera a que GitHub Pages termine el despliegue.
+1. Descomprime el ZIP. Los siete archivos están directamente en la raíz, sin subcarpetas.
+2. En tu repositorio `monitoreo-calidad-agua`, sube los siete archivos juntos a la carpeta que publica GitHub Pages y reemplaza los anteriores.
+3. Confirma los cambios y espera a que termine el despliegue.
 4. Abre https://mconde24.github.io/monitoreo-calidad-agua/ y recarga con Ctrl+F5.
 
-Las fotos no aparecían porque estaban subidas en la raíz, mientras que el HTML anterior buscaba dentro de `assets`. Esta versión usa rutas directas a `aquatrace-sensores.jpeg` y `entorno-estacion.jpeg`. También admite `assets` como ruta alternativa si se conserva la estructura anterior.
+Los archivos son `index.html`, `styles.css`, `app.js`, `station.js`, `aquatrace-sensores.jpeg`, `entorno-estacion.jpeg` y este `LEEME.md`. No requiere instalación ni compilación. Las imágenes deben quedar junto a `index.html`. No se han enviado cambios a GitHub desde esta conversación.
 
-No necesitas instalar paquetes, compilar ni añadir API keys. Los cambios no se han enviado a tu repositorio desde esta conversación.
+## Distribución final
 
-## Organización
+El encabezado muestra «AquaProbe Mocaná» sobre el banner fotográfico. Las opciones están en una barra lateral.
 
-El banner muestra el nombre AQUATRACE y «Estación Uninorte · Sensor 01», con las dos fotografías que compartiste. El nombre se cambia en `station.js`.
+En Medidores, los grupos se presentan en este orden:
 
-Las dos pestañas separan las funciones:
+1. pH y temperatura: pH a la izquierda y temperatura a la derecha.
+2. Oxigenación: oxígeno disuelto a la izquierda y saturación a la derecha.
+3. Sales y mineralización, en dos filas:
+   - Primera fila: sólidos disueltos a la izquierda y salinidad a la derecha.
+   - Segunda fila: gravedad específica a la izquierda y conductividad a la derecha.
 
-- Medidores y estación: últimas lecturas, fechas individuales, botón de consulta y mapa.
-- Series de tiempo y análisis: consulta histórica, selección de segmento, estadísticas y exportación.
+En escritorio, el mapa satelital está arriba a la derecha, junto a los grupos, y acompaña el desplazamiento. En pantallas más pequeñas pasa antes de los medidores. El mapa utiliza una vista híbrida de Google Maps, con imágenes satelitales y referencias del entorno; el enlace permite abrirla en otra pestaña.
 
-Los medidores se consultan cada 30 segundos y son independientes del historial. Se busca el último valor válido de cada variable en los últimos 100 registros de ThingSpeak. Si un campo no contiene ningún valor válido en esos registros, se informa en su tarjeta. Tras 15 minutos sin una nueva lectura, se indica «Dato antiguo»; puedes ajustar `staleAfterMinutes` en `station.js`.
+El fondo del encabezado usa `aquatrace-sensores.jpeg`. Se conserva `entorno-estacion.jpeg` por si deseas usar esa fotografía como fondo: cambia `headerImage` en `station.js`.
 
-## Calcular medias y medianas
+## Lectura actual y resumen de los medidores
 
-1. Abre «Series de tiempo y análisis».
-2. Elige el historial a cargar: última hora, 6 horas, 24 horas, 7 días o fechas específicas. Los periodos predefinidos se cargan automáticamente al cambiarlos. Para fechas específicas, pulsa «Cargar historial».
-3. Define el inicio y fin del segmento en los campos del análisis y pulsa «Calcular». También puedes arrastrar horizontalmente sobre el área de una gráfica; el mismo segmento queda sombreado en las ocho series. En el móvil, los campos de fecha ofrecen una alternativa precisa al arrastre.
-4. Consulta n, media y mediana en la tabla lateral. El CSV de estadísticas también incluye mínimo y máximo por variable.
-5. Usa «Estadísticas CSV» para exportar la tabla del segmento. «CSV del historial» exporta las lecturas del intervalo cargado completo.
-6. «Todo el historial cargado» restablece el segmento a los límites originales de la consulta.
+Cada tarjeta presenta la última lectura y tres cuadros: mínimo, máximo y promedio. El resumen se calcula inicialmente sobre la última hora y se puede cambiar desde la barra lateral: 15 o 30 minutos, 1 o 6 horas, 24 horas, o una duración personalizada de entre 1 y 10080 minutos.
 
-Las fechas de los formularios se interpretan en Colombia (UTC−5) aunque el navegador esté en otro país. Las fechas de los CSV están en ISO UTC. Se incluyen los extremos del intervalo seleccionado.
+La consulta se actualiza cada 30 segundos mientras la pestaña está visible. La lectura actual se obtiene del último valor válido de cada variable en los últimos 100 registros de ThingSpeak. El resumen usa una consulta separada para todo el periodo seleccionado, hasta el límite de 8000 registros.
 
-La media es aritmética y asigna igual peso a cada lectura válida, sin interpolar ni ponderar por tiempo. La mediana usa el valor central, o el promedio de los dos centrales cuando n es par. Los campos vacíos y no numéricos se omiten; los ceros sí se incluyen. Sin datos, la tabla muestra n=0 y guiones para las estadísticas.
+El borde de la tarjeta y el cuadro del promedio cambian según la media aritmética del periodo, no según la última lectura. Se usan verde, ámbar y rojo cuando existe un criterio aplicable. Las variables sin umbral configurado mantienen un borde neutro, sin el mensaje «requiere referencia local». Una media fuera de la escala configurada se señala para revisión. Sin datos, se muestran guiones y borde neutro.
 
-No se aplican promedios a los datos solicitados a ThingSpeak: las estadísticas se calculan localmente sobre las lecturas recibidas. Los resultados se muestran con hasta dos decimales, excepto gravedad específica (cuatro); el CSV conserva la precisión numérica disponible.
+Las referencias implementadas son orientativas para ecosistemas naturales:
 
-El historial permanece fijo tras cargarlo, para que el análisis no cambie durante la selección. Para traer nuevas lecturas a las series, pulsa «Cargar historial». Sólo los medidores tienen consulta automática.
+- pH en agua dulce: 6,5–9.
+- pH en agua marina/estuarina: 6,5–8,5 como referencia general de agua salada, sujeta a la variabilidad natural y las condiciones del sitio.
+- Oxígeno disuelto en el perfil de agua dulce: ≥5 mg/L, categoría alta; >3 y <5 mg/L, moderada; ≤3 mg/L, baja. Son categorías usadas para comparar lagos en National Lakes Assessment, no un umbral universal para todas las especies. No se aplican automáticamente al perfil marino/estuarino.
 
-## Cobertura y límites
+Estas referencias no certifican la salud del ecosistema, potabilidad ni las condiciones sanitarias de una piscina. Las otras variables no se clasifican como saludables usando intervalos universales. Los enlaces de las fuentes están en el desplegable «Rangos y fuentes».
 
-ThingSpeak permite hasta 8000 registros por consulta. Al alcanzar ese número, el panel advierte que el historial y sus estadísticas pueden estar incompletos; reduce el intervalo. No hay paginación automática. Se permiten consultas de hasta un año por vez. La primera y última lectura dentro del segmento se muestran junto a sus límites, para distinguir el intervalo solicitado de la cobertura real.
+## Series de tiempo
 
-Las gráficas muestran lecturas individuales. Su relleno no representa incertidumbre ni una banda mínimo–máximo. El arco interior representa la escala del instrumento y la identidad de la variable. Una banda exterior separada muestra la referencia ecológica aplicable. El color del valor por sí solo identifica la variable y no su calidad.
+Un único selector «Periodo» define tanto los datos consultados como la extensión del eje temporal. Los periodos predefinidos se cargan automáticamente al cambiarlos. Para fechas exactas, elige «Personalizado», completa inicio y fin y pulsa «Actualizar».
 
-## Mapa y configuración
+Las gráficas ocupan el área principal. Cada una permite escala vertical automática o límites manuales. La escala automática usa las lecturas de todo el periodo cargado; los límites manuales se conservan al cambiar el periodo.
 
-El mapa utiliza OpenStreetMap y no requiere API key. La posición de referencia de la piscina del Centro Deportivo Roble Amarillo es:
+Para analizar un segmento, arrastra horizontalmente sobre una gráfica o escribe las fechas en el panel lateral de estadísticas. El mismo segmento se sombrea en las ocho gráficas. La tabla muestra n, media y mediana; el CSV de estadísticas incluye también mínimo y máximo. «Analizar todo el periodo» restablece el segmento a los límites de la consulta.
 
-- Latitud: 11.01947°
-- Longitud: −74.84595°
+«Lecturas CSV» exporta las mediciones del periodo cargado completo. «Estadísticas CSV» exporta el segmento seleccionado. La consulta histórica permanece fija hasta cambiar el periodo o pulsar «Actualizar», para que el análisis no se mueva mientras trabajas. Los medidores se actualizan de forma independiente.
 
-Fuente cartográfica: https://www.openstreetmap.org/way/1476599457
-Consulta secundaria: https://mapcarta.com/es/W1476599457
-Referencia institucional del recinto: https://www.uninorte.edu.co/web/dunord/centro-deportivo-roble-amarillo
+La media asigna igual peso a cada lectura válida, sin interpolar ni ponderar por tiempo. Se omiten campos vacíos y valores no numéricos; se incluyen los ceros. La mediana es el valor central, o el promedio de los dos centrales cuando n es par. Se incluyen ambos extremos del segmento. La interfaz muestra hasta dos decimales, excepto gravedad específica (cuatro); el CSV mantiene la precisión numérica disponible.
 
-Es una ubicación cartográfica de referencia del recinto, no una medición GPS del sensor ni una posición recuperada de ThingSpeak. Ajusta las coordenadas en `station.js` cuando dispongas del punto de instalación medido.
+Las entradas y las fechas visibles utilizan la hora de Colombia (UTC−5), independientemente del país del navegador. Los CSV utilizan fecha ISO en UTC.
 
-En `station.js` puedes cambiar nombre, canal público, ubicación y antigüedad de los datos. En `app.js`, el arreglo `variables` contiene los campos, unidades, colores y escalas recibidos en el proyecto original. Verifica su correspondencia con los sensores. No coloques credenciales en ninguno de estos archivos: todo lo servido por GitHub Pages es público.
+## Configuración y ubicación
 
-Los mapas dependen de OpenStreetMap; las gráficas, de Chart.js 4.4.8 mediante CDN. Se necesita conexión a Internet. Las fotos están incluidas localmente junto a `index.html` y se presentan mediante HTML/CSS, sin generar imágenes nuevas.
+En `station.js` puedes editar nombre, canal público, fondo del encabezado, coordenadas, zoom, perfil de agua y duración inicial del resumen (`defaultSummaryMinutes`, 60 por defecto). `staleAfterMinutes` indica cuándo avisar de que la última lectura es antigua: 15 minutos por defecto.
 
-## Verificación realizada
+En `app.js`, el arreglo `variables` conserva los campos de ThingSpeak, unidades, colores y escalas del proyecto recibido. El orden visual de los medidores no altera la correspondencia entre campo y variable. Comprueba las escalas con las especificaciones de tus instrumentos.
 
-Sintaxis JavaScript y pruebas con respuestas simuladas: medias y medianas pares e impares, límites inclusivos, ceros y nulos, rangos inválidos, zona horaria, exportaciones CSV, pestañas, independencia de medidores e históricos, fallos de red y configuración del mapa. También se revisaron los enlaces locales y la ausencia de claves en las solicitudes. Se probaron además los límites de las referencias ecológicas, los perfiles, la neutralización de la evaluación de datos antiguos y la ruta alternativa de las imágenes. No se realizó una prueba visual en navegador en este entorno.
+El mapa usa como referencia cartográfica la piscina del Centro Deportivo Roble Amarillo de Uninorte: 11.01947°, −74.84595°. No es una lectura GPS del sensor ni una ubicación recuperada automáticamente de ThingSpeak.
 
-## Legibilidad y referencias ecológicas
+Fuente de la ubicación: https://www.openstreetmap.org/way/1476599457
+Referencia complementaria: https://mapcarta.com/es/W1476599457
 
-Se aumentó toda la interfaz: cuerpo principal a 16 px, pestañas a 18 px, títulos de sección a 26 px, valores de los medidores a 36 px en escritorio y ejes de gráficas a 14 px. Se ampliaron el banner, los controles, los medidores, el mapa y las series. En móvil se adapta el número de columnas.
+## Límites y dependencias
 
-El selector «Referencia ecológica de los medidores» permite elegir agua dulce, agua marina/estuarina o sin perfil definido. El valor inicial se configura con `defaultWaterProfile` en `station.js`. Las referencias se aplican a ecosistemas naturales, no a los requisitos sanitarios de una piscina ni a potabilidad.
+ThingSpeak devuelve como máximo 8000 registros por consulta. Si se alcanza ese límite, se avisa de que el resumen o el historial pueden estar incompletos; reduce el periodo. Esta versión no incluye paginación. El historial personalizado admite hasta un año por consulta. Los fallos de conexión conservan las últimas lecturas válidas con sus fechas y un aviso.
 
-Referencias implementadas:
+Los datos del sitio final se consultan al canal público 3151173. No hay datos ilustrativos ni API keys en los archivos de producción. Todo archivo servido por GitHub Pages es público: no coloques credenciales en el código ni en la configuración.
 
-- pH en agua dulce: 6,5–9. Se presenta verde dentro del intervalo y ámbar fuera de él.
-- pH en agua marina/estuarina: 6,5–8,5 como referencia general de agua salada. En estuarios y otros ambientes con variación natural marcada se necesita un criterio específico del sitio.
-- Oxígeno disuelto en el perfil de agua dulce: ≥5 mg/L como categoría alta; >3 y <5 mg/L como moderada; ≤3 mg/L como baja. Es una referencia orientativa procedente de una evaluación de lagos, no un límite universal para todas las especies o etapas de vida. En el perfil marino/estuarino no se aplican estas categorías de lagos.
-- Conductividad, temperatura, sólidos disueltos, salinidad, gravedad específica y saturación: se muestra la necesidad de una referencia local; no se inventan intervalos saludables universales. Los rangos de escala del instrumento no se usan para declarar saludable el agua.
+Requiere Internet para ThingSpeak, Chart.js 4.4.8 (CDN) y Google Maps. El código no requiere una clave para estas consultas públicas de datos o la vista de mapa incrustada.
 
-Una lectura antigua, inexistente o fuera de la escala configurada no se presenta como favorable. La banda de referencia puede seguir visible para explicar la escala, mientras que el mensaje del medidor informa el estado de la lectura.
+## Fuentes de los rangos
 
-La media, la mediana y los CSV siguen mostrando los valores recibidos; la incorporación de las bandas no filtra datos ni altera las mediciones.
-
-Fuentes incluidas también en el apartado desplegable de la página:
-
-- EPA, pH y criterios de vida acuática: https://www.epa.gov/wqc/national-recommended-water-quality-criteria-aquatic-life-criteria-table
+- EPA, criterios de vida acuática y pH: https://www.epa.gov/wqc/national-recommended-water-quality-criteria-aquatic-life-criteria-table
 - EPA, contexto del pH: https://www.epa.gov/caddis/ph
-- EPA, categorías de oxígeno de National Lakes Assessment: https://archive.epa.gov/water/archive/web/html/lakessurvey_faq.html
-- EPA, conductividad y línea base local: https://archive.epa.gov/water/archive/web/html/vms59.html
+- EPA, categorías de oxígeno en lagos: https://archive.epa.gov/water/archive/web/html/lakessurvey_faq.html
 
-## Series protagonistas y ajuste de ejes (última revisión)
+## Verificación
 
-Las gráficas ocupan el área principal de la sección histórica. La tabla compacta de medias y medianas se sitúa en una barra lateral en escritorio; en pantallas pequeñas se coloca debajo. La unidad aparece junto al nombre de cada variable en la tabla y los extremos permanecen disponibles en el CSV.
-
-En «Vista de las series», el eje de tiempo tiene cuatro modos:
-
-- Automática · Historial consultado: muestra exactamente el inicio y fin del periodo cargado, incluidos los espacios sin mediciones.
-- Automática · Datos disponibles: se ajusta a la primera y última lectura válida disponibles en el historial de cualquiera de las variables.
-- Segmento del análisis: se ajusta al segmento elegido para las estadísticas; cuando cambias el segmento, también cambia la vista temporal.
-- Manual · Definir fechas: permite escribir un inicio y fin dentro del historial cargado y aplicar la vista a todas las gráficas.
-
-«Ver historial completo» restablece el eje de tiempo al intervalo consultado. Recortar la vista temporal por sí solo no cambia el segmento usado para calcular las estadísticas. El botón «Analizar todo el historial» restablece el segmento estadístico.
-
-Cada gráfica tiene su propio control «Escala vertical»:
-
-- Automática: Chart.js determina mínimo y máximo a partir de las lecturas cargadas, sin límites fijos del instrumento.
-- Manual: escribe mínimo y máximo y pulsa «Aplicar». El mínimo debe ser menor que el máximo. Puedes volver a automática en cualquier momento.
-
-Los límites manuales verticales se conservan al cargar otro historial para facilitar comparaciones. La escala automática se recalcula con el historial cargado; recortar sólo la ventana temporal no excluye lecturas de ese cálculo automático vertical.
-
-Al cambiar un periodo predefinido (1 h, 6 h, 24 h o 7 días), el panel carga el historial automáticamente y actualiza la extensión temporal a ese periodo. Para fechas específicas, define los límites y pulsa «Cargar historial». Una carga correcta restablece el eje temporal al periodo nuevo y el segmento estadístico al historial completo; una carga fallida conserva los datos anteriores con su mensaje de error.
-
-Se verificaron con respuestas simuladas los modos verticales automático/manual, la validación de límites, los cuatro modos temporales y el reajuste de la extensión al cambiar el historial, además de las comprobaciones descritas anteriormente.
+Se verificaron sintaxis, referencias de archivos, distribución de los campos en grupos, resúmenes por intervalo, medias y medianas, ceros y valores vacíos, alertas de la media independientes del dato actual, duraciones personalizadas, cambios de periodo, escalas verticales, exportación CSV, zona horaria y fallos de red con respuestas simuladas. Los archivos finales conservan la consulta real a ThingSpeak. No se realizó una prueba visual de la página publicada en un navegador en este entorno.

@@ -12,6 +12,10 @@ const gaugeRoot = $("#wd-gauges");
 const chartRoot = $("#wd-charts");
 let histories = [];
 let currentHistories = [];
+let summaryHistories = [];
+let summaryWindow = null;
+let summaryTruncated = false;
+let currentGeneration = 0;
 let gauges = [];
 let charts = [];
 let loadedWindow = null;
@@ -32,12 +36,12 @@ const variables = [
     max: 14
   },
   {
-    name: "Conductividad",
-    unit: "µS/cm",
-    field: "field2",
-    color: "#9462bc",
+    name: "Salinidad",
+    unit: "ppt",
+    field: "field6",
+    color: "#26966e",
     min: 0,
-    max: 60000
+    max: 50
   },
   {
     name: "Oxígeno disuelto",
@@ -64,12 +68,12 @@ const variables = [
     max: 50000
   },
   {
-    name: "Salinidad",
-    unit: "ppt",
-    field: "field6",
-    color: "#26966e",
+    name: "Conductividad",
+    unit: "µS/cm",
+    field: "field2",
+    color: "#9462bc",
     min: 0,
-    max: 50
+    max: 60000
   },
   {
     name: "Gravedad específica",
@@ -131,19 +135,29 @@ function createGauge(variable, index) {
 
   card.innerHTML = `
     <h3>${escapeHTML(variable.name)}</h3>
-    <div class="gauge-dial"><canvas
+    <div class="gauge-reading-layout"><div class="gauge-dial"><canvas
       class="gauge-canvas"
       role="img"
       aria-label="Medidor de ${escapeHTML(variable.name)}"
     ></canvas>
     <div class="gauge-value">--</div>
     <div class="gauge-unit">${escapeHTML(variable.unit)}</div></div>
+    <div class="gauge-stat-boxes">
+      <div class="gauge-stat"><span>Mínimo</span><strong class="metric-min">—</strong></div>
+      <div class="gauge-stat"><span>Máximo</span><strong class="metric-max">—</strong></div>
+      <div class="gauge-stat metric-mean-box"><span>Promedio</span><strong class="metric-mean">—</strong></div>
+    </div></div>
     <p class="gauge-reference"></p>
     <p class="gauge-quality" role="status">Esperando lectura</p>
+    <div class="gauge-count">0 lecturas en el periodo</div>
     <div class="gauge-time">Sin lecturas</div>
   `;
 
-  gaugeRoot.appendChild(card);
+  const groupId = ["field3", "field8"].includes(variable.field) ? "#gauges-oxygen"
+    : ["field1", "field4"].includes(variable.field) ? "#gauges-physical" : "#gauges-mineral";
+  const fieldOrder = ["field5", "field6", "field7", "field2"];
+  if (groupId === "#gauges-mineral") card.style.order = String(fieldOrder.indexOf(variable.field));
+  $(groupId).appendChild(card);
 
   return {
     card,
@@ -151,6 +165,10 @@ function createGauge(variable, index) {
     value: card.querySelector(".gauge-value"),
     time: card.querySelector(".gauge-time"),
     reference: card.querySelector(".gauge-reference"),
+    summaryMin: card.querySelector(".metric-min"),
+    summaryMax: card.querySelector(".metric-max"),
+    summaryMean: card.querySelector(".metric-mean"),
+    summaryCount: card.querySelector(".gauge-count"),
     quality: card.querySelector(".gauge-quality"),
     variable,
     index
@@ -323,17 +341,7 @@ function referenceFor(variable) {
       bands: [{min: 0, max: 3, color: "#bd4045"}, {min: 3, max: 5, color: "#b77916"},
         {min: 5, max: variable.max, color: "#218355"}]};
   }
-  const notes = {
-    field1: "Selecciona un perfil para consultar la referencia",
-    field2: "Referencia: línea base de conductividad del sitio",
-    field3: "Referencia: criterio local de oxígeno y organismos",
-    field4: "Referencia: régimen térmico y especies locales",
-    field5: "Referencia: mineralización natural del cuerpo de agua",
-    field6: "Referencia: salinidad natural y tipo de ecosistema",
-    field7: "Referencia: temperatura y salinidad del agua",
-    field8: "Referencia: temperatura, presión y salinidad"
-  };
-  return {text: notes[variable.field], kind: "context", bands: []};
+  return {text: "", kind: "context", bands: []};
 }
 function evaluateReading(variable, value, stale) {
   const ref = referenceFor(variable);
@@ -347,7 +355,7 @@ function evaluateReading(variable, value, stale) {
     if (value < 5) return {state: "review", text: "Oxígeno moderado · <5 mg/L"};
     return {state: "good", text: "Referencia ≥5 mg/L satisfecha"};
   }
-  return {state: "neutral", text: "Requiere referencia local"};
+  return {state: "neutral", text: ""};
 }
 function drawGauge(gauge, latest) {
   const canvas = gauge.canvas;
@@ -411,6 +419,11 @@ function showMessage(id, text, state = "") {
   box.textContent = text;
   box.className = `status ${state}`;
 }
+function summaryDuration() {
+  const selected = $("#summary-range").value;
+  const minutes = selected === "custom" ? Number($("#summary-custom").value) : Number(selected);
+  return Number.isInteger(minutes) && minutes >= 1 && minutes <= 10080 ? minutes : null;
+}
 function drawCurrent() {
   gauges.forEach(gauge => {
     const latest = currentHistories[gauge.index]?.at(-1);
@@ -418,40 +431,62 @@ function drawCurrent() {
     const outside = latest && (latest.value < gauge.variable.min || latest.value > gauge.variable.max);
     gauge.value.textContent = latest ? formatNumber(latest.value, gauge.variable.decimals ?? 2) : "—";
     gauge.time.textContent = latest
-      ? `${formatDate(latest.time)}${stale ? " · Dato antiguo" : ""}${outside ? " · Fuera de escala" : ""}`
+      ? `Última lectura: ${formatDate(latest.time)}${stale ? " · Dato antiguo" : ""}${outside ? " · Fuera de escala" : ""}`
       : "Sin dato en los últimos 100 registros";
     gauge.card.classList.toggle("is-stale", Boolean(stale));
+    const summary = calculateStats(summaryHistories[gauge.index] || [], -Infinity, Infinity);
+    const format = value => value === null ? "—" : formatNumber(value, gauge.variable.decimals ?? 2);
+    gauge.summaryMin.textContent = format(summary.min);
+    gauge.summaryMax.textContent = format(summary.max);
+    gauge.summaryMean.textContent = format(summary.mean);
+    gauge.summaryCount.textContent = `${formatNumber(summary.n)} lecturas en el periodo${summaryTruncated ? " · Posiblemente incompleto" : ""}`;
     gauge.reference.textContent = referenceFor(gauge.variable).text;
-    const assessment = evaluateReading(gauge.variable, latest?.value ?? NaN, stale);
-    gauge.quality.textContent = assessment.text;
+    gauge.reference.hidden = !gauge.reference.textContent;
+    // El borde evalúa la media del intervalo, independientemente de la última lectura.
+    const assessment = summary.n ? evaluateReading(gauge.variable, summary.mean, false) : {state: "neutral", text: ""};
+    ["good", "review", "low", "neutral"].forEach(state => gauge.card.classList.toggle(`average-${state}`, state === assessment.state));
+    const hasRange = referenceFor(gauge.variable).kind !== "context";
+    gauge.quality.textContent = hasRange && summary.n ? `Promedio: ${assessment.text.toLowerCase()}` : "";
+    gauge.quality.hidden = !gauge.quality.textContent;
     gauge.quality.className = `gauge-quality ${assessment.state}`;
     drawGauge(gauge, latest?.value ?? NaN);
   });
+  if (summaryWindow) $("#summary-caption").textContent = `Última lectura · Resumen: ${formatDate(summaryWindow.start)} — ${formatDate(summaryWindow.end)}`;
 }
-async function refreshCurrent() {
-  if (loadingCurrent) return;
-  loadingCurrent = true;
-  refreshButton.disabled = true;
+async function refreshCurrent(force = false) {
+  if (loadingCurrent && !force) return;
+  const minutes = summaryDuration();
+  if (minutes === null) {showMessage("#wd-status", "Indica una duración entre 1 y 10080 minutos.", "error");return;}
+  const token = ++currentGeneration;
+  loadingCurrent = true;refreshButton.disabled = true;
+  const end = Math.floor(Date.now() / 1000) * 1000;
+  const start = end - minutes * 60000;
   try {
-    const feeds = await readSource({results: "100"});
-    currentHistories = parseFeeds(feeds, -Infinity, Date.now());
+    const [latestFeeds, periodFeeds] = await Promise.all([
+      readSource({results: "100"}),
+      readSource({start: new Date(start).toISOString().slice(0,19).replace("T"," "),
+        end: new Date(end).toISOString().slice(0,19).replace("T"," "), timezone: "UTC", results: "8000"})
+    ]);
+    if (token !== currentGeneration) return;
+    currentHistories = parseFeeds(latestFeeds, -Infinity, Date.now());
+    summaryHistories = parseFeeds(periodFeeds, start, end);
+    summaryWindow = {start, end};summaryTruncated = periodFeeds.length >= 8000;
     drawCurrent();
     const times = currentHistories.flatMap(points => points.length ? [points.at(-1).time] : []);
     const latest = times.length ? Math.max(...times) : null;
     const stale = latest === null || Date.now() - latest > STALE_AFTER_MS;
     $("#connection-dot").className = `dot ${stale ? "stale" : "online"}`;
     $("#connection-label").textContent = latest === null ? "Fuente disponible · Sin lecturas" : stale ? "Fuente disponible · Lecturas antiguas" : "Fuente disponible · Datos recientes";
-    // La fecha individual sólo se muestra en cada medidor; no se repite arriba.
-    showMessage("#wd-status", latest === null ? "No hay valores válidos en los últimos 100 registros." : "", latest === null ? "warning" : "");
+    const empty = !summaryHistories.some(points => points.length);
+    showMessage("#wd-status", summaryTruncated ? "Se alcanzó el límite de 8000 registros: los resúmenes pueden estar incompletos. Reduce el periodo." : empty ? "No hay lecturas válidas para calcular el resumen de este periodo." : "", summaryTruncated || empty ? "warning" : "");
     $("#last-update").textContent = `Última consulta de estación: ${formatDate(Date.now())}`;
   } catch (error) {
-    drawCurrent();
-    $("#connection-dot").className = "dot offline";
+    if (token !== currentGeneration) return;
+    drawCurrent();$("#connection-dot").className = "dot offline";
     $("#connection-label").textContent = "No se pudo consultar la estación";
-    showMessage("#wd-status", `Consulta fallida (${error.message}). Se conservan las últimas lecturas recibidas; revisa sus fechas.`, "error");
+    showMessage("#wd-status", `Consulta fallida (${error.message}). Se conservan las lecturas y el resumen anteriores con las fechas indicadas.`, "error");
   } finally {
-    loadingCurrent = false;
-    refreshButton.disabled = false;
+    if (token === currentGeneration) {loadingCurrent = false;refreshButton.disabled = false;}
   }
 }
 function queryWindow() {
@@ -487,11 +522,6 @@ async function loadHistory() {
     const count = feeds.filter(feed => {
       const time = Date.parse(feed.created_at);return time >= range.start && time <= range.end;
     }).length;
-    $("#time-mode").value = "history";
-    $("#time-manual").hidden = true;
-    $("#apply-time-view").hidden = true;
-    $("#view-start").value = inputDate(range.start);
-    $("#view-end").value = inputDate(range.end);
     resetSegment();
     showMessage("#history-status", `${formatNumber(count)} registros recibidos · ${formatDate(range.start)} — ${formatDate(range.end)}.${historyTruncated ? " Límite de 8000 registros alcanzado: el historial y las estadísticas pueden estar incompletos. Reduce el intervalo de consulta." : ""}`, historyTruncated ? "warning" : count ? "" : "warning");
     renderCharts();
@@ -531,7 +561,6 @@ function setSegment(start, end) {
   $("#segment-end").value = inputDate(end);
   renderStats();
   charts.forEach(({chart}) => chart.draw());
-  if ($("#time-mode").value === "segment") renderChartWindow();
   return true;
 }
 function resetSegment() {
@@ -540,47 +569,12 @@ function resetSegment() {
 function renderCharts() {
   charts.forEach(({chart, index, empty}) => {
     empty.hidden = histories[index].length > 0;
-    const view = chartWindow() || loadedWindow;
-    chart.options.scales.x.min = view.start;
-    chart.options.scales.x.max = view.end;
+    chart.options.scales.x.min = loadedWindow.start;
+    chart.options.scales.x.max = loadedWindow.end;
     chart.data.datasets[0].data = histories[index].map(point => ({x: point.time, y: point.value}));
     chart.data.datasets[0].pointRadius = histories[index].length === 1 ? 3 : 0;
     chart.resize();chart.update("none");
   });
-  renderChartWindow();
-}
-function chartWindow() {
-  if (!loadedWindow) return null;
-  const mode = $("#time-mode").value;
-  if (mode === "segment") return selectedSegment || loadedWindow;
-  if (mode === "available") {
-    const times = histories.flatMap(points => points.map(point => point.time));
-    if (!times.length) return loadedWindow;
-    let start = times.reduce((a,b)=>Math.min(a,b)), end = times.reduce((a,b)=>Math.max(a,b));
-    if (start === end) {start = Math.max(loadedWindow.start, start-30000);end = Math.min(loadedWindow.end, end+30000);}
-    return {start, end};
-  }
-  if (mode === "manual") {
-    const start = parseInput($("#view-start").value), end = parseInput($("#view-end").value);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end || start < loadedWindow.start || end > loadedWindow.end) return null;
-    return {start, end};
-  }
-  return loadedWindow;
-}
-function renderChartWindow() {
-  const view = chartWindow();
-  if (!view) {
-    $("#time-view-message").textContent = loadedWindow ? "Indica un inicio anterior al fin, dentro del historial cargado. La vista anterior se conserva." : "Carga un historial para ajustar la vista.";
-    $("#time-view-message").className = "time-view-message error";
-    return false;
-  }
-  charts.forEach(({chart}) => {
-    chart.options.scales.x.min = view.start;chart.options.scales.x.max = view.end;
-    chart.update("none");
-  });
-  $("#time-view-message").textContent = `Vista: ${formatDate(view.start)} — ${formatDate(view.end)}. Cambiar la vista no modifica el segmento estadístico.`;
-  $("#time-view-message").className = "time-view-message";
-  return true;
 }
 function applyVerticalAxis(entry) {
   const {chart, yMode, yMin, yMax, axisMessage} = entry;
@@ -661,11 +655,11 @@ function exportData() {
   const times = [...new Set(histories.flatMap(points => points.map(p => p.time)))].sort((a,b) => a-b);
   if (!times.length) {showMessage("#history-status", "No hay lecturas para exportar.", "warning");return;}
   const lookups = histories.map(points => new Map(points.map(p => [p.time, p.value])));
-  saveCSV(["fecha_hora_UTC", ...variables.map(v => `${v.name} (${v.unit})`)], times.map(t => [new Date(t).toISOString(), ...lookups.map(m => m.get(t) ?? "")]), "aquatrace-lecturas.csv");
+  saveCSV(["fecha_hora_UTC", ...variables.map(v => `${v.name} (${v.unit})`)], times.map(t => [new Date(t).toISOString(), ...lookups.map(m => m.get(t) ?? "")]), "aquaprobe-mocana-lecturas.csv");
 }
 function exportStats() {
   if (!selectedSegment) return;
-  saveCSV(["variable", "unidad", "n", "media", "mediana", "minimo", "maximo", "inicio_UTC", "fin_UTC", "historial_posiblemente_incompleto"], statistics.map(s => [s.variable.name, s.variable.unit, s.n, s.mean, s.median, s.min, s.max, new Date(selectedSegment.start).toISOString(), new Date(selectedSegment.end).toISOString(), historyTruncated]), "aquatrace-estadisticas.csv");
+  saveCSV(["variable", "unidad", "n", "media", "mediana", "minimo", "maximo", "inicio_UTC", "fin_UTC", "historial_posiblemente_incompleto"], statistics.map(s => [s.variable.name, s.variable.unit, s.n, s.mean, s.median, s.min, s.max, new Date(selectedSegment.start).toISOString(), new Date(selectedSegment.end).toISOString(), historyTruncated]), "aquaprobe-mocana-estadisticas.csv");
 }
 function initializeStation() {
   document.title = `${station.brand} · ${station.name}`;
@@ -674,11 +668,15 @@ function initializeStation() {
   $("#latitude").textContent = `${station.latitude.toFixed(5)}°`;
   $("#longitude").textContent = `${station.longitude.toFixed(5)}°`;
   $("#map-note").textContent = station.locationNote;
+  $("#station-header").style.backgroundImage = `linear-gradient(90deg, rgba(7,35,57,.93) 0%, rgba(7,35,57,.70) 40%, rgba(7,35,57,.14) 100%), url("${station.headerImage || './aquatrace-sensores.jpeg'}")`;
   const lat = station.latitude, lon = station.longitude;
-  const params = new URLSearchParams({bbox: `${lon-.002},${lat-.0015},${lon+.002},${lat+.0015}`, layer: "mapnik", marker: `${lat},${lon}`});
-  $("#station-map").src = `https://www.openstreetmap.org/export/embed.html?${params}`;
-  $("#map-link").href = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`;
+  const mapParams = new URLSearchParams({q: `${lat},${lon}`, t: "h", z: String(station.mapZoom || 14), output: "embed"});
+  $("#station-map").src = `https://maps.google.com/maps?${mapParams}`;
+  $("#map-link").href = `https://maps.google.com/maps?q=${lat},${lon}&t=h&z=${station.mapZoom || 14}`;
   $("#water-profile").value = station.defaultWaterProfile || "freshwater";
+  const minutes = String(station.defaultSummaryMinutes || 60);
+  if (["15", "30", "60", "360", "1440"].includes(minutes)) $("#summary-range").value = minutes;
+  else {$("#summary-range").value = "custom";$("#summary-custom").value = minutes;$("#summary-custom-wrap").hidden = false;}
   const now = Math.floor(Date.now()/1000)*1000;
   $("#query-start").value = inputDate(now - 86400000);$("#query-end").value = inputDate(now);
 }
@@ -688,6 +686,8 @@ function selectTab(name) {
     button.setAttribute("aria-selected", String(active));button.tabIndex = active ? 0 : -1;
     $(`#panel-${key}`).hidden = !active;
   });
+  $("#current-options").hidden = name !== "current";
+  $("#history-options").hidden = name !== "history";
   if (name === "current") drawCurrent();
   if (name === "history") {
     if (!historyRequested) {historyRequested = true;loadHistory();}
@@ -697,7 +697,7 @@ function selectTab(name) {
 ["current", "history"].forEach(name => {
   $(`#tab-${name}`).addEventListener("click", () => selectTab(name));
   $(`#tab-${name}`).addEventListener("keydown", event => {
-    if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
       event.preventDefault();const target = event.key === "Home" ? "current" : event.key === "End" ? "history" : name === "current" ? "history" : "current";selectTab(target);$(`#tab-${target}`).focus();
     }
   });
@@ -706,20 +706,16 @@ rangeSelect.addEventListener("change", () => {
   $("#query-dates").hidden = rangeSelect.value !== "custom";
   if (rangeSelect.value !== "custom") {historyRequested = true;loadHistory();}
 });
-$("#time-mode").addEventListener("change", () => {
-  const manual = $("#time-mode").value === "manual";
-  $("#time-manual").hidden = !manual;$("#apply-time-view").hidden = !manual;
-  if (!manual) renderChartWindow();
-});
-$("#time-view-form").addEventListener("submit", event => {event.preventDefault();renderChartWindow();});
-$("#reset-time-view").addEventListener("click", () => {
-  $("#time-mode").value = "history";$("#time-manual").hidden = true;$("#apply-time-view").hidden = true;renderChartWindow();
-});
 $("#history-form").addEventListener("submit", event => {event.preventDefault();historyRequested = true;loadHistory();});
 $("#segment-form").addEventListener("submit", event => {event.preventDefault();setSegment(parseInput($("#segment-start").value), parseInput($("#segment-end").value));});
 $("#reset-segment").addEventListener("click", resetSegment);
 $("#wd-csv").addEventListener("click", exportData);$("#stats-csv").addEventListener("click", exportStats);
-refreshButton.addEventListener("click", refreshCurrent);
+refreshButton.addEventListener("click", () => refreshCurrent(true));
+$("#summary-range").addEventListener("change", () => {
+  $("#summary-custom-wrap").hidden = $("#summary-range").value !== "custom";
+  refreshCurrent(true);
+});
+$("#summary-custom").addEventListener("change", () => refreshCurrent(true));
 window.addEventListener("resize", drawCurrent);
 document.addEventListener("visibilitychange", () => {if (!document.hidden) refreshCurrent();});
 initializeStation();
@@ -727,6 +723,7 @@ $("#water-profile").addEventListener("change", drawCurrent);
 // Compatibilidad con fotos subidas en la raíz o en la carpeta assets.
 ["sensor", "landscape"].forEach(name => {
   const image = document.querySelector(`.${name}-photo`);
+  if (!image) return;
   const handleImageError = () => {
     if (image.dataset.fallbackTried) {
       image.alt = "No se encontró la fotografía. Sube los archivos JPEG junto a index.html.";
