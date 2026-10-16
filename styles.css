@@ -40,5 +40,6 @@
 #station-header {
   background-size: cover;
   background-position: center center;
-  min-height: clamp(220px, 28vw, 480px);
+  min-height: 220px;
+  padding: 22px 34px;
 }
