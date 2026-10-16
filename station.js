@@ -10,5 +10,6 @@ window.AQUATRACE_STATION = Object.freeze({
   longitude: -74.84595,
   locationNote: "Ubicación cartográfica de referencia de la piscina; no corresponde a una lectura GPS transmitida por el sensor.",
   locationSource: "https://www.openstreetmap.org/way/1476599457",
+  defaultWaterProfile: "freshwater",
   staleAfterMinutes: 15
 });
