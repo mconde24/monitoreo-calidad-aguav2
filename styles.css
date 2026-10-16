@@ -38,32 +38,65 @@
 .panel-content .group-mineral .gauge-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 #station-header {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   min-height: 240px;
   padding: 22px 34px;
   box-sizing: border-box;
-
-  background-color: #072339;
-  background-size: 100% 100%, contain;
-  background-position: center, right center;
-  background-repeat: no-repeat;
-
   border-radius: 12px;
   overflow: hidden;
+
+  background-image: url("./aquatrace-sensores.jpeg") !important;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Fotografía completa con los sensores a la derecha */
+#station-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(100%, 720px);
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+
+  background: url("./aquatrace-sensores.jpeg")
+    right center / contain no-repeat;
+
+  -webkit-mask-image: linear-gradient(
+    to right, transparent, #000 30%
+  );
+  mask-image: linear-gradient(
+    to right, transparent, #000 30%
+  );
+}
+
+/* Oscurecimiento gradual para leer el título */
+#station-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+
+  background: linear-gradient(
+    90deg,
+    rgba(7, 35, 57, 0.90) 0%,
+    rgba(7, 35, 57, 0.72) 35%,
+    rgba(7, 35, 57, 0.25) 65%,
+    rgba(7, 35, 57, 0.04) 100%
+  );
 }
 
 #station-header .banner-copy {
+  position: relative;
+  z-index: 2;
   max-width: 48%;
-}
-
-#station-header h1 {
-  color: #fff;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 40px;
-  font-weight: 400;
-  line-height: 1.1;
-  margin: 0;
 }
 
 @media (max-width: 480px) {
@@ -73,9 +106,5 @@
 
   #station-header .banner-copy {
     max-width: 75%;
-  }
-
-  #station-header h1 {
-    font-size: 32px;
   }
 }
