@@ -1,7 +1,7 @@
 "use strict";
 // Configuración pública de presentación. No colocar credenciales aquí.
 window.AQUATRACE_STATION = Object.freeze({
-  brand: "AquaProbe Mocaná",
+  brand: "AquaProbe Mokaná",
   name: "Estación Uninorte · Sensor 01",
   headerImage: "./aquatrace-sensores.jpeg",
   mapZoom: 14,
