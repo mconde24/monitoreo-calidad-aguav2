@@ -1,15 +1,18 @@
 "use strict";
+
 const station = window.AQUATRACE_STATION;
 const CHANNEL_ID = station.channelId;
 const API_URL = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json`;
 const REFRESH_MS = 30000;
 const STALE_AFTER_MS = station.staleAfterMinutes * 60000;
 const TIME_ZONE = "America/Bogota";
+
 const $ = selector => document.querySelector(selector);
 const rangeSelect = $("#wd-range");
 const refreshButton = $("#wd-refresh");
 const gaugeRoot = $("#wd-gauges");
 const chartRoot = $("#wd-charts");
+
 let histories = [];
 let currentHistories = [];
 let summaryHistories = [];
@@ -26,6 +29,7 @@ let loadingHistory = false;
 let historyRequested = false;
 let historyTruncated = false;
 let generation = 0;
+
 const variables = [
   {
     name: "pH",
@@ -119,7 +123,7 @@ function formatTime(timestamp) {
 }
 
 function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, (char) => ({
+  return String(value).replace(/[&<>"']/g, char => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -135,28 +139,55 @@ function createGauge(variable, index) {
 
   card.innerHTML = `
     <h3>${escapeHTML(variable.name)}</h3>
-    <div class="gauge-reading-layout"><div class="gauge-dial"><canvas
-      class="gauge-canvas"
-      role="img"
-      aria-label="Medidor de ${escapeHTML(variable.name)}"
-    ></canvas>
-    <div class="gauge-value">--</div>
-    <div class="gauge-unit">${escapeHTML(variable.unit)}</div></div>
-    <div class="gauge-stat-boxes">
-      <div class="gauge-stat"><span>Mínimo</span><strong class="metric-min">—</strong></div>
-      <div class="gauge-stat"><span>Máximo</span><strong class="metric-max">—</strong></div>
-      <div class="gauge-stat metric-mean-box"><span>Promedio</span><strong class="metric-mean">—</strong></div>
-    </div></div>
+
+    <div class="gauge-reading-layout">
+      <div class="gauge-dial">
+        <canvas
+          class="gauge-canvas"
+          role="img"
+          aria-label="Medidor de ${escapeHTML(variable.name)}"
+        ></canvas>
+
+        <div class="gauge-value">--</div>
+        <div class="gauge-unit">${escapeHTML(variable.unit)}</div>
+      </div>
+
+      <div class="gauge-stat-boxes">
+        <div class="gauge-stat">
+          <span>Mínimo</span>
+          <strong class="metric-min">—</strong>
+        </div>
+
+        <div class="gauge-stat">
+          <span>Máximo</span>
+          <strong class="metric-max">—</strong>
+        </div>
+
+        <div class="gauge-stat metric-mean-box">
+          <span>Promedio</span>
+          <strong class="metric-mean">—</strong>
+        </div>
+      </div>
+    </div>
+
     <p class="gauge-reference"></p>
     <p class="gauge-quality" role="status">Esperando lectura</p>
     <div class="gauge-count">0 lecturas en el periodo</div>
     <div class="gauge-time">Sin lecturas</div>
   `;
 
-  const groupId = ["field3", "field8"].includes(variable.field) ? "#gauges-oxygen"
-    : ["field1", "field4"].includes(variable.field) ? "#gauges-physical" : "#gauges-mineral";
+  const groupId = ["field3", "field8"].includes(variable.field)
+    ? "#gauges-oxygen"
+    : ["field1", "field4"].includes(variable.field)
+      ? "#gauges-physical"
+      : "#gauges-mineral";
+
   const fieldOrder = ["field5", "field6", "field7", "field2"];
-  if (groupId === "#gauges-mineral") card.style.order = String(fieldOrder.indexOf(variable.field));
+
+  if (groupId === "#gauges-mineral") {
+    card.style.order = String(fieldOrder.indexOf(variable.field));
+  }
+
   $(groupId).appendChild(card);
 
   return {
@@ -182,20 +213,64 @@ function createChart(variable, index) {
 
   card.innerHTML = `
     <h3 class="chart-title">${escapeHTML(variable.name)}</h3>
+
     <p class="chart-subtitle">
       ${escapeHTML(variable.unit)} · Lecturas individuales
     </p>
-    <form class="axis-controls" aria-label="Escala vertical de ${escapeHTML(variable.name)}">
-      <div class="control"><label for="y-mode-${index}">Escala vertical</label><select id="y-mode-${index}" class="y-mode"><option value="auto">Automática</option><option value="manual">Manual</option></select></div>
-      <div class="y-manual" hidden><div class="control"><label for="y-min-${index}">Mínimo</label><input id="y-min-${index}" class="y-min" type="number" step="any" value="${variable.min}" required></div><div class="control"><label for="y-max-${index}">Máximo</label><input id="y-max-${index}" class="y-max" type="number" step="any" value="${variable.max}" required></div><button class="button" type="submit">Aplicar</button></div>
-    </form><p class="axis-message" role="status" aria-live="polite"></p>
+
+    <form
+      class="axis-controls"
+      aria-label="Escala vertical de ${escapeHTML(variable.name)}"
+    >
+      <div class="control">
+        <label for="y-mode-${index}">Escala vertical</label>
+        <select id="y-mode-${index}" class="y-mode">
+          <option value="auto">Automática</option>
+          <option value="manual">Manual</option>
+        </select>
+      </div>
+
+      <div class="y-manual" hidden>
+        <div class="control">
+          <label for="y-min-${index}">Mínimo</label>
+          <input
+            id="y-min-${index}"
+            class="y-min"
+            type="number"
+            step="any"
+            value="${variable.min}"
+            required
+          >
+        </div>
+
+        <div class="control">
+          <label for="y-max-${index}">Máximo</label>
+          <input
+            id="y-max-${index}"
+            class="y-max"
+            type="number"
+            step="any"
+            value="${variable.max}"
+            required
+          >
+        </div>
+
+        <button class="button" type="submit">Aplicar</button>
+      </div>
+    </form>
+
+    <p class="axis-message" role="status" aria-live="polite"></p>
+
     <div class="chart-wrap">
       <canvas
         role="img"
         aria-label="Historial de ${escapeHTML(variable.name)}"
       ></canvas>
     </div>
-    <p class="chart-empty" hidden>Sin mediciones en el periodo seleccionado.</p>
+
+    <p class="chart-empty" hidden>
+      Sin mediciones en el periodo seleccionado.
+    </p>
   `;
 
   chartRoot.appendChild(card);
@@ -248,7 +323,6 @@ function createChart(variable, index) {
           callbacks: {
             title(items) {
               if (!items.length) return "";
-
               return formatDate(items[0].parsed.x);
             },
 
@@ -274,12 +348,20 @@ function createChart(variable, index) {
             maxTicksLimit: 6,
 
             callback(value) {
-              if (loadedWindow && loadedWindow.end - loadedWindow.start > 86400000) {
+              if (
+                loadedWindow &&
+                loadedWindow.end - loadedWindow.start > 86400000
+              ) {
                 return new Intl.DateTimeFormat("es-CO", {
-                  timeZone: TIME_ZONE, day: "2-digit", month: "short",
-                  hour: "2-digit", minute: "2-digit", hour12: false
+                  timeZone: TIME_ZONE,
+                  day: "2-digit",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false
                 }).format(new Date(Number(value)));
               }
+
               return formatTime(Number(value));
             }
           },
@@ -329,424 +411,1305 @@ function createChart(variable, index) {
 // Las referencias ecológicas son independientes de las escalas del instrumento.
 function referenceFor(variable) {
   const profile = $("#water-profile").value;
+
   if (variable.field === "field1" && profile !== "unset") {
     const upper = profile === "marine" ? 8.5 : 9;
-    return {text: `Referencia: 6,5–${formatNumber(upper)} pH`, kind: "ph", low: 6.5, high: upper,
-      bands: [{min: variable.min, max: 6.5, color: "#b77916"},
-        {min: 6.5, max: upper, color: "#218355"},
-        {min: upper, max: variable.max, color: "#b77916"}]};
+
+    return {
+      text: `Referencia: 6,5–${formatNumber(upper)} pH`,
+      kind: "ph",
+      low: 6.5,
+      high: upper,
+      bands: []
+    };
   }
+
   if (variable.field === "field3" && profile === "freshwater") {
-    return {text: "Referencia: ≥5 mg/L · Lagos de agua dulce", kind: "oxygen",
-      bands: [{min: 0, max: 3, color: "#bd4045"}, {min: 3, max: 5, color: "#b77916"},
-        {min: 5, max: variable.max, color: "#218355"}]};
+    return {
+      text: "Referencia: ≥5 mg/L · Lagos de agua dulce",
+      kind: "oxygen",
+      bands: [
+        {min: 0, max: 3, color: "#bd4045"},
+        {min: 3, max: 5, color: "#b77916"},
+        {min: 5, max: variable.max, color: "#218355"}
+      ]
+    };
   }
-  return {text: "", kind: "context", bands: []};
+
+  return {
+    text: "",
+    kind: "context",
+    bands: []
+  };
 }
+
 function evaluateReading(variable, value, stale) {
   const ref = referenceFor(variable);
-  if (!Number.isFinite(value)) return {state: "neutral", text: "Sin dato para evaluar"};
-  if (stale) return {state: "neutral", text: "Dato antiguo · Revisar fecha"};
-  if (value < variable.min || value > variable.max) return {state: "review", text: "Fuera de escala · Revisar lectura"};
-  if (ref.kind === "ph") return value >= ref.low && value <= ref.high
-    ? {state: "good", text: "Dentro de referencia"} : {state: "review", text: "Fuera de referencia"};
-  if (ref.kind === "oxygen") {
-    if (value <= 3) return {state: "low", text: "Oxígeno bajo · ≤3 mg/L"};
-    if (value < 5) return {state: "review", text: "Oxígeno moderado · <5 mg/L"};
-    return {state: "good", text: "Referencia ≥5 mg/L satisfecha"};
+
+  if (!Number.isFinite(value)) {
+    return {state: "neutral", text: "Sin dato para evaluar"};
   }
+
+  if (stale) {
+    return {state: "neutral", text: "Dato antiguo · Revisar fecha"};
+  }
+
+  if (value < variable.min || value > variable.max) {
+    return {
+      state: "review",
+      text: "Fuera de escala · Revisar lectura"
+    };
+  }
+
+  if (ref.kind === "ph") {
+    return value >= ref.low && value <= ref.high
+      ? {state: "good", text: "Dentro de referencia"}
+      : {state: "review", text: "Fuera de referencia"};
+  }
+
+  if (ref.kind === "oxygen") {
+    if (value <= 3) {
+      return {state: "low", text: "Oxígeno bajo · ≤3 mg/L"};
+    }
+
+    if (value < 5) {
+      return {state: "review", text: "Oxígeno moderado · <5 mg/L"};
+    }
+
+    return {
+      state: "good",
+      text: "Referencia ≥5 mg/L satisfecha"
+    };
+  }
+
   return {state: "neutral", text: ""};
 }
-function drawGauge(gauge, latest) {
+
+// Paleta orientativa tipo indicador universal.
+// Cada tramo se centra en un pH entero.
+// No reproduce la carta de un fabricante concreto de tiras.
+const PH_INDICATOR_COLORS = Object.freeze([
+  "#b7232d",
+  "#cf2d32",
+  "#e04435",
+  "#eb6135",
+  "#ed8a2e",
+  "#eebd30",
+  "#b7c840",
+  "#4c9b47",
+  "#2a9d74",
+  "#2795a7",
+  "#347cbb",
+  "#505db0",
+  "#7150a2",
+  "#8a4592",
+  "#71358a"
+]);
+
+function phIndicatorColor(value) {
+  return Number.isFinite(value)
+    ? PH_INDICATOR_COLORS[
+        Math.max(0, Math.min(14, Math.round(value)))
+      ]
+    : null;
+}
+
+function drawPHGauge(gauge, latest) {
   const canvas = gauge.canvas;
   const width = canvas.clientWidth || 220;
   const height = 176;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = Math.round(width * dpr);canvas.height = Math.round(height * dpr);
+
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+
   const ctx = canvas.getContext("2d");
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);ctx.clearRect(0, 0, width, height);
-  const {variable} = gauge;
-  const cx = width / 2, cy = 128;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const style = typeof getComputedStyle === "function"
+    ? getComputedStyle(gauge.card)
+    : null;
+
+  const ink = style?.getPropertyValue("--ink").trim() || "#173844";
+  const muted = style?.getPropertyValue("--muted").trim() || "#526973";
+
+  const cx = width / 2;
+  const cy = 128;
   const radius = Math.min(width * 0.34, 89);
-  const fraction = value => Math.max(0, Math.min(1, (value - variable.min) / (variable.max - variable.min)));
-  const angle = value => Math.PI + Math.PI * fraction(value);
-  ctx.lineWidth = 5;ctx.lineCap = "butt";
-  referenceFor(variable).bands.forEach(band => {
-    ctx.beginPath();ctx.arc(cx, cy, radius + 12, angle(band.min), angle(band.max));ctx.strokeStyle = band.color;ctx.stroke();
+
+  const angle = value =>
+    Math.PI + Math.PI * Math.max(0, Math.min(14, value)) / 14;
+
+  ctx.lineWidth = 11;
+  ctx.lineCap = "butt";
+
+  PH_INDICATOR_COLORS.forEach((color, index) => {
+    const start = Math.max(0, index - 0.5);
+    const end = Math.min(14, index + 0.5);
+    const gap = 0.008;
+
+    ctx.beginPath();
+    ctx.arc(
+      cx,
+      cy,
+      radius,
+      angle(start) + gap,
+      angle(end) - gap
+    );
+    ctx.strokeStyle = color;
+    ctx.stroke();
   });
-  ctx.lineWidth = 9;ctx.lineCap = "round";
-  ctx.beginPath();ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);ctx.strokeStyle = "#e5ecef";ctx.stroke();
-  if (Number.isFinite(latest) && fraction(latest) > 0) {
-    ctx.beginPath();ctx.arc(cx, cy, radius, Math.PI, angle(latest));ctx.strokeStyle = variable.color;ctx.stroke();
+
+  if (Number.isFinite(latest)) {
+    const a = angle(latest);
+
+    ctx.beginPath();
+    ctx.moveTo(
+      cx + Math.cos(a) * (radius - 15),
+      cy + Math.sin(a) * (radius - 15)
+    );
+    ctx.lineTo(
+      cx + Math.cos(a) * (radius + 7),
+      cy + Math.sin(a) * (radius + 7)
+    );
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(
+      cx + Math.cos(a) * radius,
+      cy + Math.sin(a) * radius,
+      5,
+      0,
+      2 * Math.PI
+    );
+    ctx.fillStyle = phIndicatorColor(latest);
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
-  ctx.font = "14px system-ui, sans-serif";ctx.fillStyle = "#465d68";ctx.textAlign = "center";
-  ctx.fillText(formatNumber(variable.min), cx - radius, cy + 29);ctx.fillText(formatNumber(variable.max), cx + radius, cy + 29);
-  const reference = referenceFor(variable).text;
-  canvas.setAttribute("aria-label", `${variable.name}: ${Number.isFinite(latest) ? formatNumber(latest, variable.decimals ?? 2) + " " + variable.unit : "sin datos"}. Escala ${variable.min} a ${variable.max}. ${reference}.`);
+
+  ctx.font = "13px system-ui, sans-serif";
+  ctx.fillStyle = muted;
+  ctx.textAlign = "center";
+  ctx.fillText("0", cx - radius, cy + 22);
+  ctx.fillText("7", cx, cy - radius - 17);
+  ctx.fillText("14", cx + radius, cy + 22);
+
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.fillText("Ácido", cx - radius, cy + 39);
+  ctx.fillText("Neutro", cx, cy + 39);
+  ctx.fillText("Alcalino", cx + radius, cy + 39);
+
+  canvas.setAttribute(
+    "aria-label",
+    `pH: ${Number.isFinite(latest) ? formatNumber(latest) : "sin dato"}. ` +
+    "Indicador universal: rojo ácido, verde en 7 y violeta alcalino. " +
+    "El borde evalúa el promedio ambiental por separado."
+  );
 }
 
-// Todas las fechas de entrada se interpretan explícitamente en Colombia (UTC−5),
+function drawGauge(gauge, latest) {
+  if (gauge.variable.field === "field1") {
+    drawPHGauge(gauge, latest);
+    return;
+  }
+
+  const canvas = gauge.canvas;
+  const width = canvas.clientWidth || 220;
+  const height = 176;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const {variable} = gauge;
+  const cx = width / 2;
+  const cy = 128;
+  const radius = Math.min(width * 0.34, 89);
+
+  const fraction = value => Math.max(
+    0,
+    Math.min(
+      1,
+      (value - variable.min) / (variable.max - variable.min)
+    )
+  );
+
+  const angle = value => Math.PI + Math.PI * fraction(value);
+
+  ctx.lineWidth = 5;
+  ctx.lineCap = "butt";
+
+  referenceFor(variable).bands.forEach(band => {
+    ctx.beginPath();
+    ctx.arc(
+      cx,
+      cy,
+      radius + 12,
+      angle(band.min),
+      angle(band.max)
+    );
+    ctx.strokeStyle = band.color;
+    ctx.stroke();
+  });
+
+  ctx.lineWidth = 9;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
+  ctx.strokeStyle = "#e5ecef";
+  ctx.stroke();
+
+  if (Number.isFinite(latest) && fraction(latest) > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, Math.PI, angle(latest));
+    ctx.strokeStyle = variable.color;
+    ctx.stroke();
+  }
+
+  ctx.font = "14px system-ui, sans-serif";
+  ctx.fillStyle = "#465d68";
+  ctx.textAlign = "center";
+  ctx.fillText(formatNumber(variable.min), cx - radius, cy + 29);
+  ctx.fillText(formatNumber(variable.max), cx + radius, cy + 29);
+
+  const reference = referenceFor(variable).text;
+
+  canvas.setAttribute(
+    "aria-label",
+    `${variable.name}: ${
+      Number.isFinite(latest)
+        ? formatNumber(latest, variable.decimals ?? 2) + " " + variable.unit
+        : "sin datos"
+    }. Escala ${variable.min} a ${variable.max}. ${reference}.`
+  );
+}
+
+// Todas las fechas de entrada se interpretan en Colombia (UTC−5),
 // independientemente de la zona horaria del navegador.
 function inputDate(time) {
   return new Date(time - 5 * 3600000).toISOString().slice(0, 19);
 }
+
 function parseInput(value) {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value)
-    ? Date.parse(`${value}-05:00`) : NaN;
+    ? Date.parse(`${value}-05:00`)
+    : NaN;
 }
+
 function parseFeeds(feeds, start = -Infinity, end = Infinity) {
-  return variables.map(variable => feeds.map(feed => {
-    const time = Date.parse(feed.created_at);
-    const raw = feed[variable.field];
-    if (raw == null || String(raw).trim() === "") return null;
-    const value = Number(raw);
-    return Number.isFinite(time) && Number.isFinite(value) && time >= start && time <= end
-      ? {time, value} : null;
-  }).filter(Boolean).sort((a, b) => a.time - b.time));
+  return variables.map(variable =>
+    feeds.map(feed => {
+      const time = Date.parse(feed.created_at);
+      const raw = feed[variable.field];
+
+      if (raw == null || String(raw).trim() === "") return null;
+
+      const value = Number(raw);
+
+      return (
+        Number.isFinite(time) &&
+        Number.isFinite(value) &&
+        time >= start &&
+        time <= end
+      )
+        ? {time, value}
+        : null;
+    })
+      .filter(Boolean)
+      .sort((a, b) => a.time - b.time)
+  );
 }
+
 async function readSource(params) {
-  // Sólo lectura de un canal público: no se utilizan claves de API.
-  const response = await fetch(`${API_URL}?${new URLSearchParams(params)}`, {
-    signal: AbortSignal.timeout(20000), cache: "no-store"
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  // Solo lectura de un canal público: no se utilizan claves de API.
+  const response = await fetch(
+    `${API_URL}?${new URLSearchParams(params)}`,
+    {
+      signal: AbortSignal.timeout(20000),
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
   const data = await response.json();
-  if (!data || !Array.isArray(data.feeds)) throw new Error("Respuesta no válida del canal público");
+
+  if (!data || !Array.isArray(data.feeds)) {
+    throw new Error("Respuesta no válida del canal público");
+  }
+
   return data.feeds;
 }
+
 function showMessage(id, text, state = "") {
   const box = $(id);
   box.textContent = text;
   box.className = `status ${state}`;
 }
+
 function summaryDuration() {
   const selected = $("#summary-range").value;
-  const minutes = selected === "custom" ? Number($("#summary-custom").value) : Number(selected);
-  return Number.isInteger(minutes) && minutes >= 1 && minutes <= 10080 ? minutes : null;
+
+  const minutes = selected === "custom"
+    ? Number($("#summary-custom").value)
+    : Number(selected);
+
+  return Number.isInteger(minutes) && minutes >= 1 && minutes <= 10080
+    ? minutes
+    : null;
 }
+
 function drawCurrent() {
   gauges.forEach(gauge => {
     const latest = currentHistories[gauge.index]?.at(-1);
     const stale = latest && Date.now() - latest.time > STALE_AFTER_MS;
-    const outside = latest && (latest.value < gauge.variable.min || latest.value > gauge.variable.max);
-    gauge.value.textContent = latest ? formatNumber(latest.value, gauge.variable.decimals ?? 2) : "—";
+
+    const outside = latest && (
+      latest.value < gauge.variable.min ||
+      latest.value > gauge.variable.max
+    );
+
+    gauge.value.textContent = latest
+      ? formatNumber(latest.value, gauge.variable.decimals ?? 2)
+      : "—";
+
+    if (gauge.variable.field === "field1") {
+      gauge.value.style.color = "var(--ink, #173844)";
+    }
+
     gauge.time.textContent = latest
-      ? `Última lectura: ${formatDate(latest.time)}${stale ? " · Dato antiguo" : ""}${outside ? " · Fuera de escala" : ""}`
+      ? `Última lectura: ${formatDate(latest.time)}${
+          stale ? " · Dato antiguo" : ""
+        }${outside ? " · Fuera de escala" : ""}`
       : "Sin dato en los últimos 100 registros";
+
     gauge.card.classList.toggle("is-stale", Boolean(stale));
-    const summary = calculateStats(summaryHistories[gauge.index] || [], -Infinity, Infinity);
-    const format = value => value === null ? "—" : formatNumber(value, gauge.variable.decimals ?? 2);
+
+    const summary = calculateStats(
+      summaryHistories[gauge.index] || [],
+      -Infinity,
+      Infinity
+    );
+
+    const format = value => value === null
+      ? "—"
+      : formatNumber(value, gauge.variable.decimals ?? 2);
+
     gauge.summaryMin.textContent = format(summary.min);
     gauge.summaryMax.textContent = format(summary.max);
     gauge.summaryMean.textContent = format(summary.mean);
-    gauge.summaryCount.textContent = `${formatNumber(summary.n)} lecturas en el periodo${summaryTruncated ? " · Posiblemente incompleto" : ""}`;
+
+    gauge.summaryCount.textContent =
+      `${formatNumber(summary.n)} lecturas en el periodo${
+        summaryTruncated ? " · Posiblemente incompleto" : ""
+      }`;
+
     gauge.reference.textContent = referenceFor(gauge.variable).text;
     gauge.reference.hidden = !gauge.reference.textContent;
-    // El borde evalúa la media del intervalo, independientemente de la última lectura.
-    const assessment = summary.n ? evaluateReading(gauge.variable, summary.mean, false) : {state: "neutral", text: ""};
-    ["good", "review", "low", "neutral"].forEach(state => gauge.card.classList.toggle(`average-${state}`, state === assessment.state));
+
+    // El borde evalúa la media del intervalo,
+    // independientemente de la última lectura.
+    const assessment = summary.n
+      ? evaluateReading(gauge.variable, summary.mean, false)
+      : {state: "neutral", text: ""};
+
+    ["good", "review", "low", "neutral"].forEach(state => {
+      gauge.card.classList.toggle(
+        `average-${state}`,
+        state === assessment.state
+      );
+    });
+
     const hasRange = referenceFor(gauge.variable).kind !== "context";
-    gauge.quality.textContent = hasRange && summary.n ? `Promedio: ${assessment.text.toLowerCase()}` : "";
+
+    gauge.quality.textContent = hasRange && summary.n
+      ? `Promedio: ${assessment.text.toLowerCase()}`
+      : "";
+
     gauge.quality.hidden = !gauge.quality.textContent;
     gauge.quality.className = `gauge-quality ${assessment.state}`;
+
     drawGauge(gauge, latest?.value ?? NaN);
   });
-  if (summaryWindow) $("#summary-caption").textContent = `Última lectura · Resumen: ${formatDate(summaryWindow.start)} — ${formatDate(summaryWindow.end)}`;
+
+  if (summaryWindow) {
+    $("#summary-caption").textContent =
+      `Última lectura · Resumen: ${formatDate(summaryWindow.start)}` +
+      ` — ${formatDate(summaryWindow.end)}`;
+  }
 }
+
 async function refreshCurrent(force = false) {
   if (loadingCurrent && !force) return;
+
   const minutes = summaryDuration();
-  if (minutes === null) {showMessage("#wd-status", "Indica una duración entre 1 y 10080 minutos.", "error");return;}
+
+  if (minutes === null) {
+    showMessage(
+      "#wd-status",
+      "Indica una duración entre 1 y 10080 minutos.",
+      "error"
+    );
+    return;
+  }
+
   const token = ++currentGeneration;
-  loadingCurrent = true;refreshButton.disabled = true;
+  loadingCurrent = true;
+  refreshButton.disabled = true;
+
   const end = Math.floor(Date.now() / 1000) * 1000;
   const start = end - minutes * 60000;
+
   try {
     const [latestFeeds, periodFeeds] = await Promise.all([
       readSource({results: "100"}),
-      readSource({start: new Date(start).toISOString().slice(0,19).replace("T"," "),
-        end: new Date(end).toISOString().slice(0,19).replace("T"," "), timezone: "UTC", results: "8000"})
+
+      readSource({
+        start: new Date(start)
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " "),
+
+        end: new Date(end)
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " "),
+
+        timezone: "UTC",
+        results: "8000"
+      })
     ]);
+
     if (token !== currentGeneration) return;
+
     currentHistories = parseFeeds(latestFeeds, -Infinity, Date.now());
     summaryHistories = parseFeeds(periodFeeds, start, end);
-    summaryWindow = {start, end};summaryTruncated = periodFeeds.length >= 8000;
+    summaryWindow = {start, end};
+    summaryTruncated = periodFeeds.length >= 8000;
+
     drawCurrent();
-    const times = currentHistories.flatMap(points => points.length ? [points.at(-1).time] : []);
+
+    const times = currentHistories.flatMap(points =>
+      points.length ? [points.at(-1).time] : []
+    );
+
     const latest = times.length ? Math.max(...times) : null;
     const stale = latest === null || Date.now() - latest > STALE_AFTER_MS;
-    $("#connection-dot").className = `dot ${stale ? "stale" : "online"}`;
-    $("#connection-label").textContent = latest === null ? "Fuente disponible · Sin lecturas" : stale ? "Fuente disponible · Lecturas antiguas" : "Fuente disponible · Datos recientes";
+
+    $("#connection-dot").className =
+      `dot ${stale ? "stale" : "online"}`;
+
+    $("#connection-label").textContent = latest === null
+      ? "Fuente disponible · Sin lecturas"
+      : stale
+        ? "Fuente disponible · Lecturas antiguas"
+        : "Fuente disponible · Datos recientes";
+
     const empty = !summaryHistories.some(points => points.length);
-    showMessage("#wd-status", summaryTruncated ? "Se alcanzó el límite de 8000 registros: los resúmenes pueden estar incompletos. Reduce el periodo." : empty ? "No hay lecturas válidas para calcular el resumen de este periodo." : "", summaryTruncated || empty ? "warning" : "");
-    $("#last-update").textContent = `Última consulta de estación: ${formatDate(Date.now())}`;
+
+    showMessage(
+      "#wd-status",
+      summaryTruncated
+        ? "Se alcanzó el límite de 8000 registros: los resúmenes pueden estar incompletos. Reduce el periodo."
+        : empty
+          ? "No hay lecturas válidas para calcular el resumen de este periodo."
+          : "",
+      summaryTruncated || empty ? "warning" : ""
+    );
+
+    $("#last-update").textContent =
+      `Última consulta de estación: ${formatDate(Date.now())}`;
   } catch (error) {
     if (token !== currentGeneration) return;
-    drawCurrent();$("#connection-dot").className = "dot offline";
-    $("#connection-label").textContent = "No se pudo consultar la estación";
-    showMessage("#wd-status", `Consulta fallida (${error.message}). Se conservan las lecturas y el resumen anteriores con las fechas indicadas.`, "error");
+
+    drawCurrent();
+
+    $("#connection-dot").className = "dot offline";
+    $("#connection-label").textContent =
+      "No se pudo consultar la estación";
+
+    showMessage(
+      "#wd-status",
+      `Consulta fallida (${error.message}). ` +
+      "Se conservan las lecturas y el resumen anteriores con las fechas indicadas.",
+      "error"
+    );
   } finally {
-    if (token === currentGeneration) {loadingCurrent = false;refreshButton.disabled = false;}
+    if (token === currentGeneration) {
+      loadingCurrent = false;
+      refreshButton.disabled = false;
+    }
   }
 }
+
 function queryWindow() {
   if (rangeSelect.value === "custom") {
-    return {start: parseInput($("#query-start").value), end: parseInput($("#query-end").value)};
+    return {
+      start: parseInput($("#query-start").value),
+      end: parseInput($("#query-end").value)
+    };
   }
+
   const end = Math.floor(Date.now() / 1000) * 1000;
-  return {start: end - Number(rangeSelect.value) * 60000, end};
+
+  return {
+    start: end - Number(rangeSelect.value) * 60000,
+    end
+  };
 }
+
 async function loadHistory() {
   const range = queryWindow();
-  if (!Number.isFinite(range.start) || !Number.isFinite(range.end) || range.start >= range.end) {
-    showMessage("#history-status", "Indica un inicio y un fin válidos, con el inicio anterior al fin.", "error");return;
+
+  if (
+    !Number.isFinite(range.start) ||
+    !Number.isFinite(range.end) ||
+    range.start >= range.end
+  ) {
+    showMessage(
+      "#history-status",
+      "Indica un inicio y un fin válidos, con el inicio anterior al fin.",
+      "error"
+    );
+    return;
   }
+
   if (range.end - range.start > 365 * 86400000) {
-    showMessage("#history-status", "Consulta como máximo un año por vez.", "warning");return;
+    showMessage(
+      "#history-status",
+      "Consulta como máximo un año por vez.",
+      "warning"
+    );
+    return;
   }
+
   const token = ++generation;
   loadingHistory = true;
   $("#load-history").disabled = true;
+
   showMessage("#history-status", "Cargando historial…");
+
   try {
     const feeds = await readSource({
-      start: new Date(range.start).toISOString().slice(0, 19).replace("T", " "),
-      end: new Date(range.end).toISOString().slice(0, 19).replace("T", " "),
+      start: new Date(range.start)
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " "),
+
+      end: new Date(range.end)
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " "),
+
       timezone: "UTC",
       results: "8000"
     });
+
     if (token !== generation) return;
+
     histories = parseFeeds(feeds, range.start, range.end);
     loadedWindow = range;
     historyTruncated = feeds.length >= 8000;
+
     const count = feeds.filter(feed => {
-      const time = Date.parse(feed.created_at);return time >= range.start && time <= range.end;
+      const time = Date.parse(feed.created_at);
+      return time >= range.start && time <= range.end;
     }).length;
+
     resetSegment();
-    showMessage("#history-status", `${formatNumber(count)} registros recibidos · ${formatDate(range.start)} — ${formatDate(range.end)}.${historyTruncated ? " Límite de 8000 registros alcanzado: el historial y las estadísticas pueden estar incompletos. Reduce el intervalo de consulta." : ""}`, historyTruncated ? "warning" : count ? "" : "warning");
+
+    showMessage(
+      "#history-status",
+      `${formatNumber(count)} registros recibidos · ` +
+      `${formatDate(range.start)} — ${formatDate(range.end)}.` +
+      (
+        historyTruncated
+          ? " Límite de 8000 registros alcanzado: el historial y las estadísticas pueden estar incompletos. Reduce el intervalo de consulta."
+          : ""
+      ),
+      historyTruncated ? "warning" : count ? "" : "warning"
+    );
+
     renderCharts();
   } catch (error) {
-    showMessage("#history-status", `No se pudo cargar el historial (${error.message}). ${loadedWindow ? "Se conserva el intervalo cargado anteriormente, indicado en el análisis." : "Intenta nuevamente."}`, "error");
+    showMessage(
+      "#history-status",
+      `No se pudo cargar el historial (${error.message}). ` +
+      (
+        loadedWindow
+          ? "Se conserva el intervalo cargado anteriormente, indicado en el análisis."
+          : "Intenta nuevamente."
+      ),
+      "error"
+    );
   } finally {
-    if (token === generation) {loadingHistory = false;$("#load-history").disabled = false;}
+    if (token === generation) {
+      loadingHistory = false;
+      $("#load-history").disabled = false;
+    }
   }
 }
+
 function calculateStats(points, start, end) {
-  const values = points.filter(p => p.time >= start && p.time <= end).map(p => p.value).sort((a, b) => a - b);
+  const values = points
+    .filter(point => point.time >= start && point.time <= end)
+    .map(point => point.value)
+    .sort((a, b) => a - b);
+
   const n = values.length;
-  if (!n) return {n: 0, mean: null, median: null, min: null, max: null};
-  const middle = Math.floor(n / 2);
-  return {n, mean: values.reduce((a, b) => a + b, 0) / n,
-    median: n % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2,
-    min: values[0], max: values[n - 1]};
-}
-function renderStats() {
-  statistics = variables.map((variable, index) => ({variable,
-    ...calculateStats(histories[index] || [], selectedSegment.start, selectedSegment.end)}));
-  const number = (value, variable) => value === null ? "—" : formatNumber(value, variable.decimals ?? 2);
-  $("#stats-body").innerHTML = statistics.map(row => `<tr><td>${escapeHTML(row.variable.name)}<span class="stats-unit">${escapeHTML(row.variable.unit)}</span></td><td>${formatNumber(row.n)}</td><td>${number(row.mean, row.variable)}</td><td>${number(row.median, row.variable)}</td></tr>`).join("");
-  const all = histories.flatMap(points => points.map(p => p.time));
-  const inside = all.filter(time => time >= selectedSegment.start && time <= selectedSegment.end);
-  const coverage = inside.length ? ` Lecturas disponibles: ${formatDate(inside.reduce((a,b)=>Math.min(a,b)))} — ${formatDate(inside.reduce((a,b)=>Math.max(a,b)))}.` : " Sin lecturas en este segmento.";
-  const box = $("#segment-message");box.className = "segment-message";
-  box.textContent = `${formatDate(selectedSegment.start)} — ${formatDate(selectedSegment.end)}.${coverage}${historyTruncated ? " Cálculos sobre un historial posiblemente incompleto." : ""}`;
-}
-function setSegment(start, end) {
-  if (!loadedWindow || !Number.isFinite(start) || !Number.isFinite(end) || start >= end || start < loadedWindow.start || end > loadedWindow.end) {
-    $("#segment-message").textContent = "Selecciona un inicio anterior al fin, dentro del historial cargado.";
-    $("#segment-message").className = "segment-message error";return false;
+
+  if (!n) {
+    return {
+      n: 0,
+      mean: null,
+      median: null,
+      min: null,
+      max: null
+    };
   }
+
+  const middle = Math.floor(n / 2);
+
+  return {
+    n,
+    mean: values.reduce((a, b) => a + b, 0) / n,
+
+    median: n % 2
+      ? values[middle]
+      : (values[middle - 1] + values[middle]) / 2,
+
+    min: values[0],
+    max: values[n - 1]
+  };
+}
+
+function renderStats() {
+  statistics = variables.map((variable, index) => ({
+    variable,
+    ...calculateStats(
+      histories[index] || [],
+      selectedSegment.start,
+      selectedSegment.end
+    )
+  }));
+
+  const number = (value, variable) => value === null
+    ? "—"
+    : formatNumber(value, variable.decimals ?? 2);
+
+  $("#stats-body").innerHTML = statistics.map(row => `
+    <tr>
+      <td>
+        ${escapeHTML(row.variable.name)}
+        <span class="stats-unit">${escapeHTML(row.variable.unit)}</span>
+      </td>
+      <td>${formatNumber(row.n)}</td>
+      <td>${number(row.mean, row.variable)}</td>
+      <td>${number(row.median, row.variable)}</td>
+    </tr>
+  `).join("");
+
+  const all = histories.flatMap(points => points.map(point => point.time));
+
+  const inside = all.filter(time =>
+    time >= selectedSegment.start && time <= selectedSegment.end
+  );
+
+  const coverage = inside.length
+    ? ` Lecturas disponibles: ${
+        formatDate(inside.reduce((a, b) => Math.min(a, b)))
+      } — ${
+        formatDate(inside.reduce((a, b) => Math.max(a, b)))
+      }.`
+    : " Sin lecturas en este segmento.";
+
+  const box = $("#segment-message");
+  box.className = "segment-message";
+
+  box.textContent =
+    `${formatDate(selectedSegment.start)} — ` +
+    `${formatDate(selectedSegment.end)}.${coverage}` +
+    (
+      historyTruncated
+        ? " Cálculos sobre un historial posiblemente incompleto."
+        : ""
+    );
+}
+
+function setSegment(start, end) {
+  if (
+    !loadedWindow ||
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    start >= end ||
+    start < loadedWindow.start ||
+    end > loadedWindow.end
+  ) {
+    $("#segment-message").textContent =
+      "Selecciona un inicio anterior al fin, dentro del historial cargado.";
+
+    $("#segment-message").className = "segment-message error";
+    return false;
+  }
+
   selectedSegment = {start, end};
+
   $("#segment-start").value = inputDate(start);
   $("#segment-end").value = inputDate(end);
+
   renderStats();
   charts.forEach(({chart}) => chart.draw());
+
   return true;
 }
+
 function resetSegment() {
-  if (loadedWindow) setSegment(loadedWindow.start, loadedWindow.end);
+  if (loadedWindow) {
+    setSegment(loadedWindow.start, loadedWindow.end);
+  }
 }
+
 function renderCharts() {
   charts.forEach(({chart, index, empty}) => {
     empty.hidden = histories[index].length > 0;
+
     chart.options.scales.x.min = loadedWindow.start;
     chart.options.scales.x.max = loadedWindow.end;
-    chart.data.datasets[0].data = histories[index].map(point => ({x: point.time, y: point.value}));
-    chart.data.datasets[0].pointRadius = histories[index].length === 1 ? 3 : 0;
-    chart.resize();chart.update("none");
+
+    chart.data.datasets[0].data = histories[index].map(point => ({
+      x: point.time,
+      y: point.value
+    }));
+
+    chart.data.datasets[0].pointRadius =
+      histories[index].length === 1 ? 3 : 0;
+
+    chart.resize();
+    chart.update("none");
   });
 }
+
 function applyVerticalAxis(entry) {
   const {chart, yMode, yMin, yMax, axisMessage} = entry;
+
   if (yMode.value === "auto") {
-    delete chart.options.scales.y.min;delete chart.options.scales.y.max;
-    axisMessage.textContent = "";chart.update("none");return true;
+    delete chart.options.scales.y.min;
+    delete chart.options.scales.y.max;
+
+    axisMessage.textContent = "";
+    chart.update("none");
+    return true;
   }
+
   const min = yMin.value.trim() === "" ? NaN : Number(yMin.value);
   const max = yMax.value.trim() === "" ? NaN : Number(yMax.value);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
-    axisMessage.textContent = "El mínimo debe ser menor que el máximo.";return false;
+
+  if (
+    !Number.isFinite(min) ||
+    !Number.isFinite(max) ||
+    min >= max
+  ) {
+    axisMessage.textContent =
+      "El mínimo debe ser menor que el máximo.";
+    return false;
   }
-  chart.options.scales.y.min = min;chart.options.scales.y.max = max;
-  axisMessage.textContent = "";chart.update("none");return true;
+
+  chart.options.scales.y.min = min;
+  chart.options.scales.y.max = max;
+
+  axisMessage.textContent = "";
+  chart.update("none");
+
+  return true;
 }
+
 function attachAxisControls(entry) {
   entry.yMode.addEventListener("change", () => {
     entry.yManual.hidden = entry.yMode.value !== "manual";
-    if (entry.yMode.value === "auto") applyVerticalAxis(entry);
-    else {
+
+    if (entry.yMode.value === "auto") {
+      applyVerticalAxis(entry);
+    } else {
       const scale = entry.chart.scales.y;
-      if (Number.isFinite(scale?.min) && Number.isFinite(scale?.max)) {
-        entry.yMin.value = scale.min;entry.yMax.value = scale.max;
+
+      if (
+        Number.isFinite(scale?.min) &&
+        Number.isFinite(scale?.max)
+      ) {
+        entry.yMin.value = scale.min;
+        entry.yMax.value = scale.max;
       }
+
       applyVerticalAxis(entry);
     }
   });
-  entry.controls.addEventListener("submit", event => {event.preventDefault();applyVerticalAxis(entry);});
+
+  entry.controls.addEventListener("submit", event => {
+    event.preventDefault();
+    applyVerticalAxis(entry);
+  });
 }
+
 // El mismo segmento se sombrea en las ocho series.
 const segmentOverlay = {
   id: "segmentOverlay",
+
   beforeDatasetsDraw(chart) {
     const segment = chart.$dragSegment || selectedSegment;
+
     if (!segment || !chart.chartArea || !chart.scales.x) return;
+
     const {left, right, top, bottom} = chart.chartArea;
-    const x1 = Math.max(left, chart.scales.x.getPixelForValue(segment.start));
-    const x2 = Math.min(right, chart.scales.x.getPixelForValue(segment.end));
+
+    const x1 = Math.max(
+      left,
+      chart.scales.x.getPixelForValue(segment.start)
+    );
+
+    const x2 = Math.min(
+      right,
+      chart.scales.x.getPixelForValue(segment.end)
+    );
+
     if (x2 <= x1) return;
-    const ctx = chart.ctx;ctx.save();ctx.fillStyle = "rgba(20,100,119,0.08)";ctx.fillRect(x1, top, x2 - x1, bottom - top);ctx.restore();
+
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.fillStyle = "rgba(20,100,119,0.08)";
+    ctx.fillRect(x1, top, x2 - x1, bottom - top);
+    ctx.restore();
   }
 };
+
 function attachSelection({canvas, chart}) {
   let first = null;
+
   const timeAt = event => {
     const rect = canvas.getBoundingClientRect();
-    const pixel = (event.clientX - rect.left) * chart.width / rect.width;
-    return chart.scales.x.getValueForPixel(Math.max(chart.chartArea.left, Math.min(chart.chartArea.right, pixel)));
+
+    const pixel =
+      (event.clientX - rect.left) * chart.width / rect.width;
+
+    return chart.scales.x.getValueForPixel(
+      Math.max(
+        chart.chartArea.left,
+        Math.min(chart.chartArea.right, pixel)
+      )
+    );
   };
+
   canvas.addEventListener("pointerdown", event => {
-    if (!loadedWindow || !chart.chartArea || event.button !== 0) return;
+    if (!loadedWindow || !chart.chartArea || event.button !== 0) {
+      return;
+    }
+
     const rect = canvas.getBoundingClientRect();
-    const x = (event.clientX - rect.left) * chart.width / rect.width;
-    const y = (event.clientY - rect.top) * chart.height / rect.height;
-    if (x < chart.chartArea.left || x > chart.chartArea.right || y < chart.chartArea.top || y > chart.chartArea.bottom) return;
-    first = timeAt(event);canvas.setPointerCapture(event.pointerId);
+
+    const x =
+      (event.clientX - rect.left) * chart.width / rect.width;
+
+    const y =
+      (event.clientY - rect.top) * chart.height / rect.height;
+
+    if (
+      x < chart.chartArea.left ||
+      x > chart.chartArea.right ||
+      y < chart.chartArea.top ||
+      y > chart.chartArea.bottom
+    ) {
+      return;
+    }
+
+    first = timeAt(event);
+    canvas.setPointerCapture(event.pointerId);
   });
+
   canvas.addEventListener("pointermove", event => {
     if (first === null) return;
-    const last = timeAt(event);chart.$dragSegment = {start: Math.min(first, last), end: Math.max(first, last)};chart.draw();
-  });
-  canvas.addEventListener("pointerup", event => {
-    if (first === null) return;
-    const last = timeAt(event);const start = Math.min(first, last);const end = Math.max(first, last);first = null;delete chart.$dragSegment;
-    if (end - start > 1000) setSegment(Math.max(loadedWindow.start, Math.floor(start / 1000) * 1000), Math.min(loadedWindow.end, Math.ceil(end / 1000) * 1000));
+
+    const last = timeAt(event);
+
+    chart.$dragSegment = {
+      start: Math.min(first, last),
+      end: Math.max(first, last)
+    };
+
     chart.draw();
   });
-  canvas.addEventListener("pointercancel", () => {first = null;delete chart.$dragSegment;chart.draw();});
+
+  canvas.addEventListener("pointerup", event => {
+    if (first === null) return;
+
+    const last = timeAt(event);
+    const start = Math.min(first, last);
+    const end = Math.max(first, last);
+
+    first = null;
+    delete chart.$dragSegment;
+
+    if (end - start > 1000) {
+      setSegment(
+        Math.max(
+          loadedWindow.start,
+          Math.floor(start / 1000) * 1000
+        ),
+        Math.min(
+          loadedWindow.end,
+          Math.ceil(end / 1000) * 1000
+        )
+      );
+    }
+
+    chart.draw();
+  });
+
+  canvas.addEventListener("pointercancel", () => {
+    first = null;
+    delete chart.$dragSegment;
+    chart.draw();
+  });
 }
+
 function saveCSV(headers, rows, name) {
-  const quote = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
-  const csv = "\uFEFF" + [headers, ...rows].map(row => row.map(quote).join(",")).join("\r\n");
-  const url = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8;"}));
-  const a = document.createElement("a");a.href = url;a.download = name;document.body.appendChild(a);a.click();a.remove();setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const quote = value =>
+    `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+  const csv = "\uFEFF" + [headers, ...rows]
+    .map(row => row.map(quote).join(","))
+    .join("\r\n");
+
+  const url = URL.createObjectURL(
+    new Blob([csv], {type: "text/csv;charset=utf-8;"})
+  );
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
 function exportData() {
-  if (!loadedWindow) {showMessage("#history-status", "Carga un historial antes de exportar.", "warning");return;}
-  const times = [...new Set(histories.flatMap(points => points.map(p => p.time)))].sort((a,b) => a-b);
-  if (!times.length) {showMessage("#history-status", "No hay lecturas para exportar.", "warning");return;}
-  const lookups = histories.map(points => new Map(points.map(p => [p.time, p.value])));
-  saveCSV(["fecha_hora_UTC", ...variables.map(v => `${v.name} (${v.unit})`)], times.map(t => [new Date(t).toISOString(), ...lookups.map(m => m.get(t) ?? "")]), "aquaprobe-mocana-lecturas.csv");
+  if (!loadedWindow) {
+    showMessage(
+      "#history-status",
+      "Carga un historial antes de exportar.",
+      "warning"
+    );
+    return;
+  }
+
+  const times = [
+    ...new Set(
+      histories.flatMap(points => points.map(point => point.time))
+    )
+  ].sort((a, b) => a - b);
+
+  if (!times.length) {
+    showMessage(
+      "#history-status",
+      "No hay lecturas para exportar.",
+      "warning"
+    );
+    return;
+  }
+
+  const lookups = histories.map(points =>
+    new Map(points.map(point => [point.time, point.value]))
+  );
+
+  saveCSV(
+    [
+      "fecha_hora_UTC",
+      ...variables.map(variable =>
+        `${variable.name} (${variable.unit})`
+      )
+    ],
+    times.map(time => [
+      new Date(time).toISOString(),
+      ...lookups.map(map => map.get(time) ?? "")
+    ]),
+    "aquaprobe-mocana-lecturas.csv"
+  );
 }
+
 function exportStats() {
   if (!selectedSegment) return;
-  saveCSV(["variable", "unidad", "n", "media", "mediana", "minimo", "maximo", "inicio_UTC", "fin_UTC", "historial_posiblemente_incompleto"], statistics.map(s => [s.variable.name, s.variable.unit, s.n, s.mean, s.median, s.min, s.max, new Date(selectedSegment.start).toISOString(), new Date(selectedSegment.end).toISOString(), historyTruncated]), "aquaprobe-mocana-estadisticas.csv");
+
+  saveCSV(
+    [
+      "variable",
+      "unidad",
+      "n",
+      "media",
+      "mediana",
+      "minimo",
+      "maximo",
+      "inicio_UTC",
+      "fin_UTC",
+      "historial_posiblemente_incompleto"
+    ],
+    statistics.map(row => [
+      row.variable.name,
+      row.variable.unit,
+      row.n,
+      row.mean,
+      row.median,
+      row.min,
+      row.max,
+      new Date(selectedSegment.start).toISOString(),
+      new Date(selectedSegment.end).toISOString(),
+      historyTruncated
+    ]),
+    "aquaprobe-mocana-estadisticas.csv"
+  );
 }
+
 function initializeStation() {
   document.title = `${station.brand} · ${station.name}`;
-  $("#station-brand").textContent = station.brand;$("#station-name").textContent = station.name;
-  $("#channel-label").textContent = CHANNEL_ID;$("#map-name").textContent = station.place;$("#map-place").textContent = station.site;
-  $("#latitude").textContent = `${station.latitude.toFixed(5)}°`;
-  $("#longitude").textContent = `${station.longitude.toFixed(5)}°`;
+
+  $("#station-brand").textContent = station.brand;
+  $("#station-name").textContent = station.name;
+  $("#channel-label").textContent = CHANNEL_ID;
+  $("#map-name").textContent = station.place;
+  $("#map-place").textContent = station.site;
+
+  $("#latitude").textContent =
+    `${station.latitude.toFixed(5)}°`;
+
+  $("#longitude").textContent =
+    `${station.longitude.toFixed(5)}°`;
+
   $("#map-note").textContent = station.locationNote;
-  $("#station-header").style.backgroundImage = `linear-gradient(90deg, rgba(7,35,57,.93) 0%, rgba(7,35,57,.70) 40%, rgba(7,35,57,.14) 100%), url("${station.headerImage || './aquatrace-sensores.jpeg'}")`;
-  const lat = station.latitude, lon = station.longitude;
-  const mapParams = new URLSearchParams({q: `${lat},${lon}`, t: "h", z: String(station.mapZoom || 14), output: "embed"});
-  $("#station-map").src = `https://maps.google.com/maps?${mapParams}`;
-  $("#map-link").href = `https://maps.google.com/maps?q=${lat},${lon}&t=h&z=${station.mapZoom || 14}`;
-  $("#water-profile").value = station.defaultWaterProfile || "freshwater";
+
+  $("#station-header").style.backgroundImage =
+    "linear-gradient(90deg, " +
+    "rgba(7,35,57,.93) 0%, " +
+    "rgba(7,35,57,.70) 40%, " +
+    "rgba(7,35,57,.14) 100%), " +
+    `url("${station.headerImage || "./aquatrace-sensores.jpeg"}")`;
+
+  const lat = station.latitude;
+  const lon = station.longitude;
+
+  const mapParams = new URLSearchParams({
+    q: `${lat},${lon}`,
+    t: "h",
+    z: String(station.mapZoom || 14),
+    output: "embed"
+  });
+
+  $("#station-map").src =
+    `https://maps.google.com/maps?${mapParams}`;
+
+  $("#map-link").href =
+    `https://maps.google.com/maps?q=${lat},${lon}` +
+    `&t=h&z=${station.mapZoom || 14}`;
+
+  $("#water-profile").value =
+    station.defaultWaterProfile || "freshwater";
+
   const minutes = String(station.defaultSummaryMinutes || 60);
-  if (["15", "30", "60", "360", "1440"].includes(minutes)) $("#summary-range").value = minutes;
-  else {$("#summary-range").value = "custom";$("#summary-custom").value = minutes;$("#summary-custom-wrap").hidden = false;}
-  const now = Math.floor(Date.now()/1000)*1000;
-  $("#query-start").value = inputDate(now - 86400000);$("#query-end").value = inputDate(now);
+
+  if (["15", "30", "60", "360", "1440"].includes(minutes)) {
+    $("#summary-range").value = minutes;
+  } else {
+    $("#summary-range").value = "custom";
+    $("#summary-custom").value = minutes;
+    $("#summary-custom-wrap").hidden = false;
+  }
+
+  const now = Math.floor(Date.now() / 1000) * 1000;
+
+  $("#query-start").value = inputDate(now - 86400000);
+  $("#query-end").value = inputDate(now);
 }
+
 function selectTab(name) {
   ["current", "history"].forEach(key => {
-    const active = name === key;const button = $(`#tab-${key}`);
-    button.setAttribute("aria-selected", String(active));button.tabIndex = active ? 0 : -1;
+    const active = name === key;
+    const button = $(`#tab-${key}`);
+
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+
     $(`#panel-${key}`).hidden = !active;
   });
+
   $("#current-options").hidden = name !== "current";
   $("#history-options").hidden = name !== "history";
-  if (name === "current") drawCurrent();
+
+  if (name === "current") {
+    drawCurrent();
+  }
+
   if (name === "history") {
-    if (!historyRequested) {historyRequested = true;loadHistory();}
-    charts.forEach(({chart}) => {chart.resize();chart.update("none");});
+    if (!historyRequested) {
+      historyRequested = true;
+      loadHistory();
+    }
+
+    charts.forEach(({chart}) => {
+      chart.resize();
+      chart.update("none");
+    });
   }
 }
+
 ["current", "history"].forEach(name => {
-  $(`#tab-${name}`).addEventListener("click", () => selectTab(name));
+  $(`#tab-${name}`).addEventListener("click", () => {
+    selectTab(name);
+  });
+
   $(`#tab-${name}`).addEventListener("keydown", event => {
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
-      event.preventDefault();const target = event.key === "Home" ? "current" : event.key === "End" ? "history" : name === "current" ? "history" : "current";selectTab(target);$(`#tab-${target}`).focus();
+    if (
+      [
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "ArrowDown",
+        "Home",
+        "End"
+      ].includes(event.key)
+    ) {
+      event.preventDefault();
+
+      const target = event.key === "Home"
+        ? "current"
+        : event.key === "End"
+          ? "history"
+          : name === "current"
+            ? "history"
+            : "current";
+
+      selectTab(target);
+      $(`#tab-${target}`).focus();
     }
   });
 });
+
 rangeSelect.addEventListener("change", () => {
   $("#query-dates").hidden = rangeSelect.value !== "custom";
-  if (rangeSelect.value !== "custom") {historyRequested = true;loadHistory();}
+
+  if (rangeSelect.value !== "custom") {
+    historyRequested = true;
+    loadHistory();
+  }
 });
-$("#history-form").addEventListener("submit", event => {event.preventDefault();historyRequested = true;loadHistory();});
-$("#segment-form").addEventListener("submit", event => {event.preventDefault();setSegment(parseInput($("#segment-start").value), parseInput($("#segment-end").value));});
+
+$("#history-form").addEventListener("submit", event => {
+  event.preventDefault();
+  historyRequested = true;
+  loadHistory();
+});
+
+$("#segment-form").addEventListener("submit", event => {
+  event.preventDefault();
+
+  setSegment(
+    parseInput($("#segment-start").value),
+    parseInput($("#segment-end").value)
+  );
+});
+
 $("#reset-segment").addEventListener("click", resetSegment);
-$("#wd-csv").addEventListener("click", exportData);$("#stats-csv").addEventListener("click", exportStats);
-refreshButton.addEventListener("click", () => refreshCurrent(true));
-$("#summary-range").addEventListener("change", () => {
-  $("#summary-custom-wrap").hidden = $("#summary-range").value !== "custom";
+$("#wd-csv").addEventListener("click", exportData);
+$("#stats-csv").addEventListener("click", exportStats);
+
+refreshButton.addEventListener("click", () => {
   refreshCurrent(true);
 });
-$("#summary-custom").addEventListener("change", () => refreshCurrent(true));
+
+$("#summary-range").addEventListener("change", () => {
+  $("#summary-custom-wrap").hidden =
+    $("#summary-range").value !== "custom";
+
+  refreshCurrent(true);
+});
+
+$("#summary-custom").addEventListener("change", () => {
+  refreshCurrent(true);
+});
+
 window.addEventListener("resize", drawCurrent);
-document.addEventListener("visibilitychange", () => {if (!document.hidden) refreshCurrent();});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshCurrent();
+});
+
 initializeStation();
+
 $("#water-profile").addEventListener("change", drawCurrent);
+
 // Compatibilidad con fotos subidas en la raíz o en la carpeta assets.
 ["sensor", "landscape"].forEach(name => {
   const image = document.querySelector(`.${name}-photo`);
+
   if (!image) return;
+
   const handleImageError = () => {
     if (image.dataset.fallbackTried) {
-      image.alt = "No se encontró la fotografía. Sube los archivos JPEG junto a index.html.";
+      image.alt =
+        "No se encontró la fotografía. Sube los archivos JPEG junto a index.html.";
       return;
     }
+
     image.dataset.fallbackTried = "true";
-    image.src = name === "sensor" ? "./assets/aquatrace-sensores.jpeg" : "./assets/entorno-estacion.jpeg";
+
+    image.src = name === "sensor"
+      ? "./assets/aquatrace-sensores.jpeg"
+      : "./assets/entorno-estacion.jpeg";
   };
+
   image.addEventListener("error", handleImageError);
-  if (image.complete && image.naturalWidth === 0) handleImageError();
+
+  if (image.complete && image.naturalWidth === 0) {
+    handleImageError();
+  }
 });
+
 if (typeof Chart !== "undefined") {
   Chart.defaults.font.size = 14;
   Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
   Chart.defaults.color = "#465d68";
 }
-variables.forEach((variable, index) => gauges.push(createGauge(variable, index)));
+
+variables.forEach((variable, index) => {
+  gauges.push(createGauge(variable, index));
+});
+
 if (typeof Chart !== "undefined") {
-  variables.forEach((variable, index) => charts.push(createChart(variable, index)));
+  variables.forEach((variable, index) => {
+    charts.push(createChart(variable, index));
+  });
+
   charts.forEach(attachSelection);
   charts.forEach(attachAxisControls);
 } else {
-  showMessage("#history-status", "No se pudo cargar Chart.js. Los medidores y los cálculos tabulares siguen disponibles; comprueba tu conexión para ver las gráficas.", "error");
+  showMessage(
+    "#history-status",
+    "No se pudo cargar Chart.js. Los medidores y los cálculos tabulares siguen disponibles; comprueba tu conexión para ver las gráficas.",
+    "error"
+  );
 }
+
 refreshCurrent();
-setInterval(() => {if (!document.hidden) refreshCurrent();}, REFRESH_MS);
+
+setInterval(() => {
+  if (!document.hidden) refreshCurrent();
+}, REFRESH_MS);
