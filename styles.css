@@ -36,3 +36,9 @@
 
 /* Sales y mineralización: dos filas para comparación directa. */
 .panel-content .group-mineral .gauge-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+#station-header {
+  background-size: cover;
+  background-position: center center;
+  min-height: clamp(300px, 28vw, 480px);
+}
