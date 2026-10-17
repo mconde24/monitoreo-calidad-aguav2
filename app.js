@@ -6,6 +6,7 @@ const API_URL = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json`;
 const REFRESH_MS = 30000;
 const STALE_AFTER_MS = station.staleAfterMinutes * 60000;
 const TIME_ZONE = "America/Bogota";
+const SMOOTHING_WINDOW_MS = 60000;
 
 const $ = selector => document.querySelector(selector);
 const rangeSelect = $("#wd-range");
@@ -139,37 +140,18 @@ function createGauge(variable, index) {
 
   card.innerHTML = `
     <h3>${escapeHTML(variable.name)}</h3>
-
-    <div class="gauge-reading-layout">
-      <div class="gauge-dial">
-        <canvas
-          class="gauge-canvas"
-          role="img"
-          aria-label="Medidor de ${escapeHTML(variable.name)}"
-        ></canvas>
-
-        <div class="gauge-value">--</div>
-        <div class="gauge-unit">${escapeHTML(variable.unit)}</div>
-      </div>
-
-      <div class="gauge-stat-boxes">
-        <div class="gauge-stat">
-          <span>Mínimo</span>
-          <strong class="metric-min">—</strong>
-        </div>
-
-        <div class="gauge-stat">
-          <span>Máximo</span>
-          <strong class="metric-max">—</strong>
-        </div>
-
-        <div class="gauge-stat metric-mean-box">
-          <span>Promedio</span>
-          <strong class="metric-mean">—</strong>
-        </div>
-      </div>
-    </div>
-
+    <div class="gauge-reading-layout"><div class="gauge-dial"><canvas
+      class="gauge-canvas"
+      role="img"
+      aria-label="Medidor de ${escapeHTML(variable.name)}"
+    ></canvas>
+    <div class="gauge-value">--</div>
+    <div class="gauge-unit">${escapeHTML(variable.unit)}</div></div>
+    <div class="gauge-stat-boxes">
+      <div class="gauge-stat"><span>Mínimo</span><strong class="metric-min">—</strong></div>
+      <div class="gauge-stat"><span>Máximo</span><strong class="metric-max">—</strong></div>
+      <div class="gauge-stat metric-mean-box"><span>Promedio</span><strong class="metric-mean">—</strong></div>
+    </div></div>
     <p class="gauge-reference"></p>
     <p class="gauge-quality" role="status">Esperando lectura</p>
     <div class="gauge-count">0 lecturas en el periodo</div>
@@ -213,68 +195,23 @@ function createChart(variable, index) {
 
   card.innerHTML = `
     <h3 class="chart-title">${escapeHTML(variable.name)}</h3>
-
     <p class="chart-subtitle">
-      ${escapeHTML(variable.unit)} · Lecturas individuales
+      ${escapeHTML(variable.unit)} · Media móvil: 1 min · Banda: mínimo–máximo del minuto
     </p>
-
-    <form
-      class="axis-controls"
-      aria-label="Escala vertical de ${escapeHTML(variable.name)}"
-    >
-      <div class="control">
-        <label for="y-mode-${index}">Escala vertical</label>
-        <select id="y-mode-${index}" class="y-mode">
-          <option value="auto">Automática</option>
-          <option value="manual">Manual</option>
-        </select>
-      </div>
-
-      <div class="y-manual" hidden>
-        <div class="control">
-          <label for="y-min-${index}">Mínimo</label>
-          <input
-            id="y-min-${index}"
-            class="y-min"
-            type="number"
-            step="any"
-            value="${variable.min}"
-            required
-          >
-        </div>
-
-        <div class="control">
-          <label for="y-max-${index}">Máximo</label>
-          <input
-            id="y-max-${index}"
-            class="y-max"
-            type="number"
-            step="any"
-            value="${variable.max}"
-            required
-          >
-        </div>
-
-        <button class="button" type="submit">Aplicar</button>
-      </div>
-    </form>
-
-    <p class="axis-message" role="status" aria-live="polite"></p>
-
+    <form class="axis-controls" aria-label="Escala vertical de ${escapeHTML(variable.name)}">
+      <div class="control"><label for="y-mode-${index}">Escala vertical</label><select id="y-mode-${index}" class="y-mode"><option value="auto">Automática</option><option value="manual">Manual</option></select></div>
+      <div class="y-manual" hidden><div class="control"><label for="y-min-${index}">Mínimo</label><input id="y-min-${index}" class="y-min" type="number" step="any" value="${variable.min}" required></div><div class="control"><label for="y-max-${index}">Máximo</label><input id="y-max-${index}" class="y-max" type="number" step="any" value="${variable.max}" required></div><button class="button" type="submit">Aplicar</button></div>
+    </form><p class="axis-message" role="status" aria-live="polite"></p>
     <div class="chart-wrap">
       <canvas
         role="img"
-        aria-label="Historial de ${escapeHTML(variable.name)}"
+        aria-label="${escapeHTML(variable.name)}: media móvil de un minuto con banda mínimo–máximo de las lecturas originales"
       ></canvas>
     </div>
-
-    <p class="chart-empty" hidden>
-      Sin mediciones en el periodo seleccionado.
-    </p>
+    <p class="chart-empty" hidden>Sin mediciones en el periodo seleccionado.</p>
   `;
 
   chartRoot.appendChild(card);
-
   const canvas = card.querySelector("canvas");
 
   const chart = new Chart(canvas, {
@@ -282,19 +219,46 @@ function createChart(variable, index) {
     type: "line",
 
     data: {
-      datasets: [{
-        label: `${variable.name} (${variable.unit})`,
-        data: [],
-        borderColor: variable.color,
-        backgroundColor: variable.color + "0D",
-        borderWidth: 2,
-        pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHoverBackgroundColor: variable.color,
-        fill: true,
-        tension: 0,
-        spanGaps: false
-      }]
+      datasets: [
+        {
+          label: "Media móvil · 1 min",
+          data: [],
+          order: 0,
+          borderColor: variable.color,
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: variable.color,
+          fill: false,
+          tension: 0,
+          spanGaps: false
+        },
+        {
+          label: "Mínimo del minuto",
+          data: [],
+          order: 1,
+          borderColor: "transparent",
+          borderWidth: 0,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false,
+          tension: 0,
+          spanGaps: false
+        },
+        {
+          label: "Máximo del minuto",
+          data: [],
+          order: 1,
+          borderColor: "transparent",
+          borderWidth: 0,
+          backgroundColor: variable.color + "28",
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: {target: 1},
+          tension: 0,
+          spanGaps: false
+        }
+      ]
     },
 
     options: {
@@ -304,7 +268,7 @@ function createChart(variable, index) {
       normalized: true,
 
       interaction: {
-        mode: "nearest",
+        mode: "index",
         intersect: false
       },
 
@@ -313,8 +277,13 @@ function createChart(variable, index) {
           display: false
         },
 
+        filler: {
+          propagate: false
+        },
+
         tooltip: {
           enabled: true,
+          filter: item => item.datasetIndex === 0,
           displayColors: false,
           titleFont: {size: 15},
           bodyFont: {size: 15},
@@ -327,9 +296,16 @@ function createChart(variable, index) {
             },
 
             label(context) {
-              return `${variable.name}: ${
-                formatNumber(context.parsed.y, variable.decimals ?? 2)
-              } ${variable.unit}`;
+              const point = context.raw;
+              const number = value =>
+                formatNumber(value, variable.decimals ?? 2);
+
+              return [
+                `Media móvil (1 min): ${number(point.y)} ${variable.unit}`,
+                `Lectura original: ${number(point.raw)} ${variable.unit}`,
+                `Mínimo–máximo: ${number(point.min)}–${number(point.max)} ${variable.unit}`,
+                `${point.n} lecturas${point.partial ? " · Ventana inicial parcial" : ""}`
+              ];
             }
           }
         }
@@ -436,11 +412,7 @@ function referenceFor(variable) {
     };
   }
 
-  return {
-    text: "",
-    kind: "context",
-    bands: []
-  };
+  return {text: "", kind: "context", bands: []};
 }
 
 function evaluateReading(variable, value, stale) {
@@ -455,10 +427,7 @@ function evaluateReading(variable, value, stale) {
   }
 
   if (value < variable.min || value > variable.max) {
-    return {
-      state: "review",
-      text: "Fuera de escala · Revisar lectura"
-    };
+    return {state: "review", text: "Fuera de escala · Revisar lectura"};
   }
 
   if (ref.kind === "ph") {
@@ -476,41 +445,22 @@ function evaluateReading(variable, value, stale) {
       return {state: "review", text: "Oxígeno moderado · <5 mg/L"};
     }
 
-    return {
-      state: "good",
-      text: "Referencia ≥5 mg/L satisfecha"
-    };
+    return {state: "good", text: "Referencia ≥5 mg/L satisfecha"};
   }
 
   return {state: "neutral", text: ""};
 }
 
 // Paleta orientativa tipo indicador universal.
-// Cada tramo se centra en un pH entero.
-// No reproduce la carta de un fabricante concreto de tiras.
 const PH_INDICATOR_COLORS = Object.freeze([
-  "#b7232d",
-  "#cf2d32",
-  "#e04435",
-  "#eb6135",
-  "#ed8a2e",
-  "#eebd30",
-  "#b7c840",
-  "#4c9b47",
-  "#2a9d74",
-  "#2795a7",
-  "#347cbb",
-  "#505db0",
-  "#7150a2",
-  "#8a4592",
-  "#71358a"
+  "#b7232d", "#cf2d32", "#e04435", "#eb6135", "#ed8a2e",
+  "#eebd30", "#b7c840", "#4c9b47", "#2a9d74", "#2795a7",
+  "#347cbb", "#505db0", "#7150a2", "#8a4592", "#71358a"
 ]);
 
 function phIndicatorColor(value) {
   return Number.isFinite(value)
-    ? PH_INDICATOR_COLORS[
-        Math.max(0, Math.min(14, Math.round(value)))
-      ]
+    ? PH_INDICATOR_COLORS[Math.max(0, Math.min(14, Math.round(value)))]
     : null;
 }
 
@@ -542,7 +492,7 @@ function drawPHGauge(gauge, latest) {
   const angle = value =>
     Math.PI + Math.PI * Math.max(0, Math.min(14, value)) / 14;
 
-  // ARRIBA: escala fija de colores tipo tira indicadora.
+  // Arco superior: escala fija de colores.
   ctx.lineWidth = 5;
   ctx.lineCap = "butt";
 
@@ -560,7 +510,7 @@ function drawPHGauge(gauge, latest) {
     ctx.stroke();
   });
 
-  // DEBAJO: fondo de la barra de lectura.
+  // Arco inferior: barra de lectura actual.
   ctx.lineWidth = 9;
   ctx.lineCap = "round";
   ctx.beginPath();
@@ -569,7 +519,6 @@ function drawPHGauge(gauge, latest) {
   ctx.stroke();
 
   if (Number.isFinite(latest)) {
-    // La barra avanza desde 0 hasta el pH actual.
     if (latest > 0) {
       ctx.beginPath();
       ctx.arc(cx, cy, radius, Math.PI, angle(latest));
@@ -577,7 +526,6 @@ function drawPHGauge(gauge, latest) {
       ctx.stroke();
     }
 
-    // Marca la lectura sobre la escala superior.
     const a = angle(latest);
 
     ctx.beginPath();
@@ -639,10 +587,7 @@ function drawGauge(gauge, latest) {
 
   const fraction = value => Math.max(
     0,
-    Math.min(
-      1,
-      (value - variable.min) / (variable.max - variable.min)
-    )
+    Math.min(1, (value - variable.min) / (variable.max - variable.min))
   );
 
   const angle = value => Math.PI + Math.PI * fraction(value);
@@ -652,13 +597,7 @@ function drawGauge(gauge, latest) {
 
   referenceFor(variable).bands.forEach(band => {
     ctx.beginPath();
-    ctx.arc(
-      cx,
-      cy,
-      radius + 12,
-      angle(band.min),
-      angle(band.max)
-    );
+    ctx.arc(cx, cy, radius + 12, angle(band.min), angle(band.max));
     ctx.strokeStyle = band.color;
     ctx.stroke();
   });
@@ -695,8 +634,7 @@ function drawGauge(gauge, latest) {
   );
 }
 
-// Todas las fechas de entrada se interpretan en Colombia (UTC−5),
-// independientemente de la zona horaria del navegador.
+// Fechas de entrada interpretadas en Colombia (UTC−5).
 function inputDate(time) {
   return new Date(time - 5 * 3600000).toISOString().slice(0, 19);
 }
@@ -708,31 +646,25 @@ function parseInput(value) {
 }
 
 function parseFeeds(feeds, start = -Infinity, end = Infinity) {
-  return variables.map(variable =>
-    feeds.map(feed => {
-      const time = Date.parse(feed.created_at);
-      const raw = feed[variable.field];
+  return variables.map(variable => feeds.map(feed => {
+    const time = Date.parse(feed.created_at);
+    const raw = feed[variable.field];
 
-      if (raw == null || String(raw).trim() === "") return null;
+    if (raw == null || String(raw).trim() === "") return null;
 
-      const value = Number(raw);
+    const value = Number(raw);
 
-      return (
-        Number.isFinite(time) &&
-        Number.isFinite(value) &&
-        time >= start &&
-        time <= end
-      )
-        ? {time, value}
-        : null;
-    })
-      .filter(Boolean)
-      .sort((a, b) => a.time - b.time)
-  );
+    return Number.isFinite(time) &&
+      Number.isFinite(value) &&
+      time >= start &&
+      time <= end
+      ? {time, value}
+      : null;
+  }).filter(Boolean).sort((a, b) => a.time - b.time));
 }
 
 async function readSource(params) {
-  // Solo lectura de un canal público: no se utilizan claves de API.
+  // Canal público: no se utilizan claves de API.
   const response = await fetch(
     `${API_URL}?${new URLSearchParams(params)}`,
     {
@@ -741,9 +673,7 @@ async function readSource(params) {
     }
   );
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
   const data = await response.json();
 
@@ -762,7 +692,6 @@ function showMessage(id, text, state = "") {
 
 function summaryDuration() {
   const selected = $("#summary-range").value;
-
   const minutes = selected === "custom"
     ? Number($("#summary-custom").value)
     : Number(selected);
@@ -820,8 +749,6 @@ function drawCurrent() {
     gauge.reference.textContent = referenceFor(gauge.variable).text;
     gauge.reference.hidden = !gauge.reference.textContent;
 
-    // El borde evalúa la media del intervalo,
-    // independientemente de la última lectura.
     const assessment = summary.n
       ? evaluateReading(gauge.variable, summary.mean, false)
       : {state: "neutral", text: ""};
@@ -876,18 +803,9 @@ async function refreshCurrent(force = false) {
   try {
     const [latestFeeds, periodFeeds] = await Promise.all([
       readSource({results: "100"}),
-
       readSource({
-        start: new Date(start)
-          .toISOString()
-          .slice(0, 19)
-          .replace("T", " "),
-
-        end: new Date(end)
-          .toISOString()
-          .slice(0, 19)
-          .replace("T", " "),
-
+        start: new Date(start).toISOString().slice(0, 19).replace("T", " "),
+        end: new Date(end).toISOString().slice(0, 19).replace("T", " "),
         timezone: "UTC",
         results: "8000"
       })
@@ -909,8 +827,7 @@ async function refreshCurrent(force = false) {
     const latest = times.length ? Math.max(...times) : null;
     const stale = latest === null || Date.now() - latest > STALE_AFTER_MS;
 
-    $("#connection-dot").className =
-      `dot ${stale ? "stale" : "online"}`;
+    $("#connection-dot").className = `dot ${stale ? "stale" : "online"}`;
 
     $("#connection-label").textContent = latest === null
       ? "Fuente disponible · Sin lecturas"
@@ -936,15 +853,12 @@ async function refreshCurrent(force = false) {
     if (token !== currentGeneration) return;
 
     drawCurrent();
-
     $("#connection-dot").className = "dot offline";
-    $("#connection-label").textContent =
-      "No se pudo consultar la estación";
+    $("#connection-label").textContent = "No se pudo consultar la estación";
 
     showMessage(
       "#wd-status",
-      `Consulta fallida (${error.message}). ` +
-      "Se conservan las lecturas y el resumen anteriores con las fechas indicadas.",
+      `Consulta fallida (${error.message}). Se conservan las lecturas y el resumen anteriores con las fechas indicadas.`,
       "error"
     );
   } finally {
@@ -1004,16 +918,8 @@ async function loadHistory() {
 
   try {
     const feeds = await readSource({
-      start: new Date(range.start)
-        .toISOString()
-        .slice(0, 19)
-        .replace("T", " "),
-
-      end: new Date(range.end)
-        .toISOString()
-        .slice(0, 19)
-        .replace("T", " "),
-
+      start: new Date(range.start).toISOString().slice(0, 19).replace("T", " "),
+      end: new Date(range.end).toISOString().slice(0, 19).replace("T", " "),
       timezone: "UTC",
       results: "8000"
     });
@@ -1072,13 +978,7 @@ function calculateStats(points, start, end) {
   const n = values.length;
 
   if (!n) {
-    return {
-      n: 0,
-      mean: null,
-      median: null,
-      min: null,
-      max: null
-    };
+    return {n: 0, mean: null, median: null, min: null, max: null};
   }
 
   const middle = Math.floor(n / 2);
@@ -1086,11 +986,9 @@ function calculateStats(points, start, end) {
   return {
     n,
     mean: values.reduce((a, b) => a + b, 0) / n,
-
     median: n % 2
       ? values[middle]
       : (values[middle - 1] + values[middle]) / 2,
-
     min: values[0],
     max: values[n - 1]
   };
@@ -1112,10 +1010,7 @@ function renderStats() {
 
   $("#stats-body").innerHTML = statistics.map(row => `
     <tr>
-      <td>
-        ${escapeHTML(row.variable.name)}
-        <span class="stats-unit">${escapeHTML(row.variable.unit)}</span>
-      </td>
+      <td>${escapeHTML(row.variable.name)}<span class="stats-unit">${escapeHTML(row.variable.unit)}</span></td>
       <td>${formatNumber(row.n)}</td>
       <td>${number(row.mean, row.variable)}</td>
       <td>${number(row.median, row.variable)}</td>
@@ -1166,7 +1061,6 @@ function setSegment(start, end) {
   }
 
   selectedSegment = {start, end};
-
   $("#segment-start").value = inputDate(start);
   $("#segment-end").value = inputDate(end);
 
@@ -1182,16 +1076,94 @@ function resetSegment() {
   }
 }
 
+// Media y rango de las lecturas de los últimos 60 segundos.
+// Se utilizan las fechas reales, no un número fijo de muestras.
+function rollingMinute(points) {
+  const result = [];
+  const minima = [];
+  const maxima = [];
+
+  let left = 0;
+  let minHead = 0;
+  let maxHead = 0;
+  let sum = 0;
+  let runStart = points[0]?.time;
+
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i];
+
+    // Interrumpir la curva cuando falta más de un minuto de datos.
+    if (i && point.time - points[i - 1].time > SMOOTHING_WINDOW_MS) {
+      result.push({
+        x: points[i - 1].time + 1,
+        y: null,
+        min: null,
+        max: null
+      });
+
+      runStart = point.time;
+    }
+
+    const cutoff = point.time - SMOOTHING_WINDOW_MS;
+
+    while (left < i && points[left].time < cutoff) {
+      sum -= points[left++].value;
+    }
+
+    sum += point.value;
+
+    while (
+      minima.length > minHead &&
+      points[minima.at(-1)].value >= point.value
+    ) {
+      minima.pop();
+    }
+
+    while (
+      maxima.length > maxHead &&
+      points[maxima.at(-1)].value <= point.value
+    ) {
+      maxima.pop();
+    }
+
+    minima.push(i);
+    maxima.push(i);
+
+    while (minima[minHead] < left) minHead++;
+    while (maxima[maxHead] < left) maxHead++;
+
+    const n = i - left + 1;
+
+    result.push({
+      x: point.time,
+      y: sum / n,
+      raw: point.value,
+      n,
+      min: points[minima[minHead]].value,
+      max: points[maxima[maxHead]].value,
+      partial: point.time - runStart < SMOOTHING_WINDOW_MS
+    });
+  }
+
+  return result;
+}
+
 function renderCharts() {
   charts.forEach(({chart, index, empty}) => {
     empty.hidden = histories[index].length > 0;
-
     chart.options.scales.x.min = loadedWindow.start;
     chart.options.scales.x.max = loadedWindow.end;
 
-    chart.data.datasets[0].data = histories[index].map(point => ({
-      x: point.time,
-      y: point.value
+    const smoothed = rollingMinute(histories[index]);
+
+    chart.data.datasets[0].data = smoothed;
+    chart.data.datasets[1].data = smoothed.map(point => ({
+      x: point.x,
+      y: point.min
+    }));
+    chart.data.datasets[2].data = smoothed.map(point => ({
+      x: point.x,
+      y: point.max
     }));
 
     chart.data.datasets[0].pointRadius =
@@ -1217,11 +1189,7 @@ function applyVerticalAxis(entry) {
   const min = yMin.value.trim() === "" ? NaN : Number(yMin.value);
   const max = yMax.value.trim() === "" ? NaN : Number(yMax.value);
 
-  if (
-    !Number.isFinite(min) ||
-    !Number.isFinite(max) ||
-    min >= max
-  ) {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
     axisMessage.textContent =
       "El mínimo debe ser menor que el máximo.";
     return false;
@@ -1229,10 +1197,9 @@ function applyVerticalAxis(entry) {
 
   chart.options.scales.y.min = min;
   chart.options.scales.y.max = max;
-
   axisMessage.textContent = "";
-  chart.update("none");
 
+  chart.update("none");
   return true;
 }
 
@@ -1245,10 +1212,7 @@ function attachAxisControls(entry) {
     } else {
       const scale = entry.chart.scales.y;
 
-      if (
-        Number.isFinite(scale?.min) &&
-        Number.isFinite(scale?.max)
-      ) {
+      if (Number.isFinite(scale?.min) && Number.isFinite(scale?.max)) {
         entry.yMin.value = scale.min;
         entry.yMax.value = scale.max;
       }
@@ -1299,9 +1263,7 @@ function attachSelection({canvas, chart}) {
 
   const timeAt = event => {
     const rect = canvas.getBoundingClientRect();
-
-    const pixel =
-      (event.clientX - rect.left) * chart.width / rect.width;
+    const pixel = (event.clientX - rect.left) * chart.width / rect.width;
 
     return chart.scales.x.getValueForPixel(
       Math.max(
@@ -1312,17 +1274,11 @@ function attachSelection({canvas, chart}) {
   };
 
   canvas.addEventListener("pointerdown", event => {
-    if (!loadedWindow || !chart.chartArea || event.button !== 0) {
-      return;
-    }
+    if (!loadedWindow || !chart.chartArea || event.button !== 0) return;
 
     const rect = canvas.getBoundingClientRect();
-
-    const x =
-      (event.clientX - rect.left) * chart.width / rect.width;
-
-    const y =
-      (event.clientY - rect.top) * chart.height / rect.height;
+    const x = (event.clientX - rect.left) * chart.width / rect.width;
+    const y = (event.clientY - rect.top) * chart.height / rect.height;
 
     if (
       x < chart.chartArea.left ||
@@ -1387,9 +1343,10 @@ function saveCSV(headers, rows, name) {
   const quote = value =>
     `"${String(value ?? "").replace(/"/g, '""')}"`;
 
-  const csv = "\uFEFF" + [headers, ...rows]
-    .map(row => row.map(quote).join(","))
-    .join("\r\n");
+  const csv = "\uFEFF" +
+    [headers, ...rows]
+      .map(row => row.map(quote).join(","))
+      .join("\r\n");
 
   const url = URL.createObjectURL(
     new Blob([csv], {type: "text/csv;charset=utf-8;"})
@@ -1417,9 +1374,7 @@ function exportData() {
   }
 
   const times = [
-    ...new Set(
-      histories.flatMap(points => points.map(point => point.time))
-    )
+    ...new Set(histories.flatMap(points => points.map(point => point.time)))
   ].sort((a, b) => a - b);
 
   if (!times.length) {
@@ -1438,9 +1393,7 @@ function exportData() {
   saveCSV(
     [
       "fecha_hora_UTC",
-      ...variables.map(variable =>
-        `${variable.name} (${variable.unit})`
-      )
+      ...variables.map(variable => `${variable.name} (${variable.unit})`)
     ],
     times.map(time => [
       new Date(time).toISOString(),
@@ -1490,20 +1443,13 @@ function initializeStation() {
   $("#channel-label").textContent = CHANNEL_ID;
   $("#map-name").textContent = station.place;
   $("#map-place").textContent = station.site;
-
-  $("#latitude").textContent =
-    `${station.latitude.toFixed(5)}°`;
-
-  $("#longitude").textContent =
-    `${station.longitude.toFixed(5)}°`;
-
+  $("#latitude").textContent = `${station.latitude.toFixed(5)}°`;
+  $("#longitude").textContent = `${station.longitude.toFixed(5)}°`;
   $("#map-note").textContent = station.locationNote;
 
   $("#station-header").style.backgroundImage =
-    "linear-gradient(90deg, " +
-    "rgba(7,35,57,.93) 0%, " +
-    "rgba(7,35,57,.70) 40%, " +
-    "rgba(7,35,57,.14) 100%), " +
+    `linear-gradient(90deg, rgba(7,35,57,.93) 0%, ` +
+    `rgba(7,35,57,.70) 40%, rgba(7,35,57,.14) 100%), ` +
     `url("${station.headerImage || "./aquatrace-sensores.jpeg"}")`;
 
   const lat = station.latitude;
@@ -1556,9 +1502,7 @@ function selectTab(name) {
   $("#current-options").hidden = name !== "current";
   $("#history-options").hidden = name !== "history";
 
-  if (name === "current") {
-    drawCurrent();
-  }
+  if (name === "current") drawCurrent();
 
   if (name === "history") {
     if (!historyRequested) {
@@ -1574,19 +1518,14 @@ function selectTab(name) {
 }
 
 ["current", "history"].forEach(name => {
-  $(`#tab-${name}`).addEventListener("click", () => {
-    selectTab(name);
-  });
+  $(`#tab-${name}`).addEventListener("click", () => selectTab(name));
 
   $(`#tab-${name}`).addEventListener("keydown", event => {
     if (
       [
-        "ArrowLeft",
-        "ArrowRight",
-        "ArrowUp",
-        "ArrowDown",
-        "Home",
-        "End"
+        "ArrowLeft", "ArrowRight",
+        "ArrowUp", "ArrowDown",
+        "Home", "End"
       ].includes(event.key)
     ) {
       event.preventDefault();
@@ -1633,9 +1572,7 @@ $("#reset-segment").addEventListener("click", resetSegment);
 $("#wd-csv").addEventListener("click", exportData);
 $("#stats-csv").addEventListener("click", exportStats);
 
-refreshButton.addEventListener("click", () => {
-  refreshCurrent(true);
-});
+refreshButton.addEventListener("click", () => refreshCurrent(true));
 
 $("#summary-range").addEventListener("change", () => {
   $("#summary-custom-wrap").hidden =
@@ -1644,9 +1581,7 @@ $("#summary-range").addEventListener("change", () => {
   refreshCurrent(true);
 });
 
-$("#summary-custom").addEventListener("change", () => {
-  refreshCurrent(true);
-});
+$("#summary-custom").addEventListener("change", () => refreshCurrent(true));
 
 window.addEventListener("resize", drawCurrent);
 
@@ -1658,7 +1593,7 @@ initializeStation();
 
 $("#water-profile").addEventListener("change", drawCurrent);
 
-// Compatibilidad con fotos subidas en la raíz o en la carpeta assets.
+// Compatibilidad con fotos en la raíz o en la carpeta assets.
 ["sensor", "landscape"].forEach(name => {
   const image = document.querySelector(`.${name}-photo`);
 
